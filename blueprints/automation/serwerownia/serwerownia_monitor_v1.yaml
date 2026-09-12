@@ -1,8 +1,9 @@
 blueprint:
-  name: "Serwerownia Monitor v1.3.5"
+  name: "Serwerownia Monitor v1.3.6"
   description: >
     Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM, Seagate SMART
-    oraz host Proxmox z dyskiem Patriot SSD i zajęciem dysku systemowego.
+    oraz host Proxmox z dyskiem Patriot SSD. Wszystkie sensory zajętości dysków,
+    w tym systemowy dysk Proxmoxa, są grupowane w sekcji Storage / Dyski.
     Tworzy trwałe powiadomienia Home Assistant oraz opcjonalne powiadomienia PUSH.
   domain: automation
   source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
@@ -17,7 +18,6 @@ blueprint:
       input:
         ups_status_entity:
           name: "Status UPS (NUT)"
-          description: "Np. sensor.ups_dane_stanu"
           default: sensor.ups_dane_stanu
           selector:
             entity:
@@ -25,7 +25,6 @@ blueprint:
                 - domain: sensor
         ups_load_entity:
           name: "Obciążenie UPS"
-          description: "Np. sensor.ups_obciazenie"
           default: sensor.ups_obciazenie
           selector:
             entity:
@@ -33,7 +32,6 @@ blueprint:
                 - domain: sensor
         ups_battery_voltage_entity:
           name: "Napięcie baterii UPS"
-          description: "Np. sensor.ups_napiecie_baterii"
           default: sensor.ups_napiecie_baterii
           selector:
             entity:
@@ -41,7 +39,6 @@ blueprint:
                 - domain: sensor
         ups_input_voltage_entity:
           name: "Napięcie wejściowe UPS"
-          description: "Np. sensor.ups_napiecie_wejsciowe"
           default: sensor.ups_napiecie_wejsciowe
           selector:
             entity:
@@ -101,6 +98,9 @@ blueprint:
       input:
         storage_entities:
           name: "Sensory zajętości storage"
+          description: >
+            Dodaj tutaj wszystkie procentowe sensory zajętości: backup OMV,
+            system OMV, Seagate oraz Proxmox / (sensor.192_168_40_10_disk_usage).
           default: []
           selector:
             entity:
@@ -261,14 +261,6 @@ blueprint:
             seconds: 0
           selector:
             duration: {}
-        proxmox_disk_usage_entity:
-          name: "Zajęcie dysku systemowego Proxmox /"
-          description: "Glances 192.168.40.10 — / disk usage. Używa progów Storage 80/90%."
-          default: sensor.192_168_40_10_disk_usage
-          selector:
-            entity:
-              filter:
-                - domain: sensor
         patriot_health_entity:
           name: "Patriot SSD Health"
           description: "Natywny sensor Glances/SMART. off = zdrowy, on = problem."
@@ -475,21 +467,6 @@ triggers:
     below: !input proxmox_cpu_recovery_threshold
     for: !input proxmox_cpu_delay
     id: proxmox_cpu_recovered
-
-  - trigger: numeric_state
-    entity_id: !input proxmox_disk_usage_entity
-    above: !input storage_warning_threshold
-    for: !input storage_delay
-    id: proxmox_disk_warning
-  - trigger: numeric_state
-    entity_id: !input proxmox_disk_usage_entity
-    above: !input storage_critical_threshold
-    for: !input storage_delay
-    id: proxmox_disk_critical
-  - trigger: numeric_state
-    entity_id: !input proxmox_disk_usage_entity
-    below: !input storage_warning_threshold
-    id: proxmox_disk_recovered
 
   - trigger: state
     entity_id: !input patriot_health_entity
@@ -829,63 +806,6 @@ actions:
                 data:
                   title: "✅ Proxmox - CPU OK"
                   message: "Temperatura CPU spadła do {{ trigger.to_state.state }} °C."
-
-      - conditions:
-          - condition: trigger
-            id: proxmox_disk_warning
-        sequence:
-          - action: persistent_notification.create
-            data:
-              title: "🟠 Proxmox - mało miejsca"
-              message: "Dysk systemowy /: zajęcie {{ trigger.to_state.state }}%."
-          - if:
-              - condition: template
-                value_template: "{{ enable_mobile_notifications_var }}"
-            then:
-              - action: "{{ mobile_notify_service_var }}"
-                data:
-                  title: "🟠 Proxmox - dysk systemowy"
-                  message: "Dysk / ma {{ trigger.to_state.state }}% zajęte."
-          - choose: []
-            default: !input custom_actions
-
-      - conditions:
-          - condition: trigger
-            id: proxmox_disk_critical
-        sequence:
-          - action: persistent_notification.create
-            data:
-              title: "🔴 Proxmox - dysk KRYTYCZNY"
-              message: "Dysk systemowy /: zajęcie {{ trigger.to_state.state }}%."
-          - if:
-              - condition: template
-                value_template: "{{ enable_mobile_notifications_var }}"
-            then:
-              - action: "{{ mobile_notify_service_var }}"
-                data:
-                  title: "🔴 Proxmox - dysk KRYTYCZNY"
-                  message: "Dysk / ma {{ trigger.to_state.state }}% zajęte."
-          - choose: []
-            default: !input custom_actions
-
-      - conditions:
-          - condition: trigger
-            id: proxmox_disk_recovered
-          - condition: template
-            value_template: "{{ notify_recovery_var }}"
-        sequence:
-          - action: persistent_notification.create
-            data:
-              title: "✅ Proxmox - miejsce OK"
-              message: "Zajęcie dysku / spadło do {{ trigger.to_state.state }}%."
-          - if:
-              - condition: template
-                value_template: "{{ enable_mobile_notifications_var }}"
-            then:
-              - action: "{{ mobile_notify_service_var }}"
-                data:
-                  title: "✅ Proxmox - dysk OK"
-                  message: "Zajęcie dysku / spadło do {{ trigger.to_state.state }}%."
 
       - conditions:
           - condition: trigger
