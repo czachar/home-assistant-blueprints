@@ -1,11 +1,13 @@
 blueprint:
-  name: "Serwerownia Monitor v1.3.2"
+  name: "Serwerownia Monitor v1.3.3"
   description: >
     Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM, Seagate SMART
     oraz host Proxmox z dyskiem Patriot SSD. Tworzy trwałe powiadomienia Home Assistant
     oraz opcjonalne powiadomienia PUSH do aplikacji Home Assistant.
   domain: automation
   source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
+  homeassistant:
+    min_version: 2024.6.0
 
   input:
     ups_section:
@@ -16,6 +18,7 @@ blueprint:
         ups_status_entity:
           name: "Status UPS (NUT)"
           description: "Np. sensor.ups_dane_stanu"
+          default: sensor.ups_dane_stanu
           selector:
             entity:
               filter:
@@ -24,6 +27,7 @@ blueprint:
         ups_load_entity:
           name: "Obciążenie UPS"
           description: "Np. sensor.ups_obciazenie"
+          default: sensor.ups_obciazenie
           selector:
             entity:
               filter:
@@ -32,6 +36,7 @@ blueprint:
         ups_battery_voltage_entity:
           name: "Napięcie baterii UPS"
           description: "Np. sensor.ups_napiecie_baterii"
+          default: sensor.ups_napiecie_baterii
           selector:
             entity:
               filter:
@@ -40,6 +45,7 @@ blueprint:
         ups_input_voltage_entity:
           name: "Napięcie wejściowe UPS"
           description: "Np. sensor.ups_napiecie_wejsciowe"
+          default: sensor.ups_napiecie_wejsciowe
           selector:
             entity:
               filter:
@@ -65,6 +71,12 @@ blueprint:
         monitored_entities:
           name: "Monitorowane encje"
           description: "Statusy VM/LXC: OMV, ownCloud, Jellyfin, Pi-hole, CODEX."
+          default:
+            - binary_sensor.qemu_omv_101_status
+            - binary_sensor.qemu_owncloud_102_status
+            - binary_sensor.qemu_codex_dev_103_status
+            - binary_sensor.lxc_jellyfin_104_status
+            - binary_sensor.lxc_pihole_105_status
           selector:
             entity:
               multiple: true
@@ -97,6 +109,7 @@ blueprint:
       input:
         storage_entities:
           name: "Sensory zajętości storage"
+          default: []
           selector:
             entity:
               multiple: true
@@ -337,6 +350,7 @@ blueprint:
         ram_entity:
           name: "Sensor RAM"
           description: "Realny RAM OMV z Glances."
+          default: sensor.192_168_30_10_memory_usage
           selector:
             entity:
               filter:
