@@ -1,5 +1,5 @@
 blueprint:
-  name: "Serwerownia Monitor v1.3.1"
+  name: "Serwerownia Monitor v1.3.2"
   description: >
     Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM, Seagate SMART
     oraz host Proxmox z dyskiem Patriot SSD. Tworzy trwałe powiadomienia Home Assistant
@@ -11,7 +11,7 @@ blueprint:
     ups_section:
       name: "UPS / Zasilanie"
       icon: mdi:power-plug-battery
-      collapsed: false
+      collapsed: true
       input:
         ups_status_entity:
           name: "Status UPS (NUT)"
@@ -135,7 +135,7 @@ blueprint:
     seagate_section:
       name: "Seagate / SMART"
       icon: mdi:harddisk-alert
-      collapsed: false
+      collapsed: true
       input:
         seagate_smart_problem_entity:
           name: "Seagate SMART Problem"
@@ -222,7 +222,7 @@ blueprint:
     proxmox_section:
       name: "Proxmox / Patriot SSD"
       icon: mdi:server-security
-      collapsed: false
+      collapsed: true
       input:
         proxmox_cpu_temperature_entity:
           name: "Temperatura CPU Proxmox"
