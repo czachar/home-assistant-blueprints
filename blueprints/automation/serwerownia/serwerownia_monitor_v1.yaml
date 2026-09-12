@@ -1,13 +1,9 @@
 blueprint:
-  name: "Serwerownia Monitor v1.2"
+  name: "Serwerownia Monitor v1.3"
   description: >
-    Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM oraz Seagate SMART.
-    Blueprint tworzy trwałe powiadomienia Home Assistant oraz opcjonalne
-    powiadomienia PUSH do aplikacji Home Assistant przy zaniku zasilania,
-    powrocie zasilania, dłuższym offline urządzeń, wysokim zajęciu storage,
-    wysokim użyciu RAM, problemie SMART dysku i wysokiej temperaturze dysku.
-    W komunikatach UPS używa czytelnych nazw ON BATTERY / ON LINE,
-    a techniczne wartości NUT pozostają OB / OL.
+    Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM, Seagate SMART
+    oraz host Proxmox z dyskiem Patriot SSD. Tworzy trwałe powiadomienia Home Assistant
+    oraz opcjonalne powiadomienia PUSH do aplikacji Home Assistant.
   domain: automation
   source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
 
@@ -51,14 +47,12 @@ blueprint:
 
         ups_on_battery_state:
           name: "ON BATTERY - kod NUT"
-          description: "Pozostaw OB dla Twojego UPS. To techniczna wartość sensora NUT."
           default: "OB"
           selector:
             text: {}
 
         ups_online_state:
           name: "ON LINE - kod NUT"
-          description: "Pozostaw OL dla Twojego UPS. To techniczna wartość sensora NUT."
           default: "OL"
           selector:
             text: {}
@@ -70,8 +64,7 @@ blueprint:
       input:
         monitored_entities:
           name: "Monitorowane encje"
-          description: >
-            Wybierz statusy VM/LXC, np. OMV, ownCloud, Jellyfin, Pi-hole, CODEX.
+          description: "Statusy VM/LXC: OMV, ownCloud, Jellyfin, Pi-hole, CODEX."
           selector:
             entity:
               multiple: true
@@ -104,8 +97,6 @@ blueprint:
       input:
         storage_entities:
           name: "Sensory zajętości storage"
-          description: >
-            Wybierz sensory procentowego zajęcia, np. backup OMV, Seagate, /.
           selector:
             entity:
               multiple: true
@@ -149,8 +140,8 @@ blueprint:
         seagate_smart_problem_entity:
           name: "Seagate SMART Problem"
           description: >
-            Binary sensor stanu SMART. U Ciebie alarmuje dopiero po pogorszeniu
-            obecnej bazy: Pending > 8, Uncorrectable > 8 lub Reallocated > 0.
+            U Ciebie sensor alarmuje dopiero po pogorszeniu bazy:
+            Pending > 8, Uncorrectable > 8 lub Reallocated > 0.
           default: binary_sensor.seagate_smart_problem
           selector:
             entity:
@@ -211,7 +202,6 @@ blueprint:
 
         seagate_temp_recovery_threshold:
           name: "Temperatura - powrót do normy"
-          description: "Histereza dla powiadomienia recovery."
           default: 43
           selector:
             number:
@@ -222,7 +212,116 @@ blueprint:
 
         seagate_temp_delay:
           name: "Czas utrzymania temperatury"
-          description: "Chroni przed alarmem od krótkiego skoku temperatury."
+          default:
+            hours: 0
+            minutes: 2
+            seconds: 0
+          selector:
+            duration: {}
+
+    proxmox_section:
+      name: "Proxmox / Patriot SSD"
+      icon: mdi:server-security
+      collapsed: false
+      input:
+        proxmox_cpu_temperature_entity:
+          name: "Temperatura CPU Proxmox"
+          default: sensor.192_168_40_10_package_id_0_temperature
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+
+        proxmox_cpu_warning_threshold:
+          name: "CPU - ostrzeżenie"
+          default: 75
+          selector:
+            number:
+              min: 40
+              max: 95
+              step: 1
+              unit_of_measurement: "°C"
+
+        proxmox_cpu_critical_threshold:
+          name: "CPU - alarm krytyczny"
+          default: 85
+          selector:
+            number:
+              min: 50
+              max: 100
+              step: 1
+              unit_of_measurement: "°C"
+
+        proxmox_cpu_recovery_threshold:
+          name: "CPU - powrót do normy"
+          default: 70
+          selector:
+            number:
+              min: 30
+              max: 90
+              step: 1
+              unit_of_measurement: "°C"
+
+        proxmox_cpu_delay:
+          name: "Czas utrzymania temperatury CPU"
+          default:
+            hours: 0
+            minutes: 2
+            seconds: 0
+          selector:
+            duration: {}
+
+        patriot_health_entity:
+          name: "Patriot SSD Health"
+          description: "Natywny sensor Glances/SMART. off = zdrowy, on = problem."
+          default: binary_sensor.disk_serwer_patriot_burst_health
+          selector:
+            entity:
+              filter:
+                - domain: binary_sensor
+
+        patriot_temperature_entity:
+          name: "Temperatura Patriot SSD"
+          default: sensor.disk_serwer_patriot_burst_temperature
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+                  device_class: temperature
+
+        patriot_temp_warning_threshold:
+          name: "SSD - ostrzeżenie"
+          default: 55
+          selector:
+            number:
+              min: 30
+              max: 75
+              step: 1
+              unit_of_measurement: "°C"
+
+        patriot_temp_critical_threshold:
+          name: "SSD - alarm krytyczny"
+          default: 65
+          selector:
+            number:
+              min: 40
+              max: 85
+              step: 1
+              unit_of_measurement: "°C"
+
+        patriot_temp_recovery_threshold:
+          name: "SSD - powrót do normy"
+          default: 50
+          selector:
+            number:
+              min: 20
+              max: 70
+              step: 1
+              unit_of_measurement: "°C"
+
+        patriot_temp_delay:
+          name: "Czas utrzymania temperatury SSD"
           default:
             hours: 0
             minutes: 2
@@ -237,8 +336,7 @@ blueprint:
       input:
         ram_entity:
           name: "Sensor RAM"
-          description: >
-            Najlepiej realny RAM OMV z Glances, a nie RAM widziany z Proxmoxa.
+          description: "Realny RAM OMV z Glances."
           selector:
             entity:
               filter:
@@ -286,24 +384,18 @@ blueprint:
 
         enable_mobile_notifications:
           name: "Powiadomienia PUSH do aplikacji"
-          description: "Włącz wysyłanie tych samych alarmów do aplikacji Home Assistant."
           default: true
           selector:
             boolean: {}
 
         mobile_notify_service:
           name: "Usługa powiadomień telefonu"
-          description: >
-            Dla Twojego telefonu: notify.mobile_app_s24_ultra. Jeśli zmienisz telefon,
-            wpisz tutaj nową nazwę usługi notify.mobile_app_...
           default: "notify.mobile_app_s24_ultra"
           selector:
             text: {}
 
         custom_actions:
           name: "Dodatkowe akcje po każdym alarmie"
-          description: >
-            Opcjonalne akcje poza powiadomieniem HA i PUSH.
           default: []
           selector:
             action: {}
@@ -327,6 +419,7 @@ triggers:
 
   - trigger: state
     entity_id: !input ups_status_entity
+    from: !input ups_on_battery_state
     to: !input ups_online_state
     id: ups_online
 
@@ -338,6 +431,7 @@ triggers:
 
   - trigger: state
     entity_id: !input monitored_entities
+    from: !input device_offline_state
     to: !input device_online_state
     id: device_online
 
@@ -389,6 +483,54 @@ triggers:
     id: seagate_temp_recovered
 
   - trigger: numeric_state
+    entity_id: !input proxmox_cpu_temperature_entity
+    above: !input proxmox_cpu_warning_threshold
+    for: !input proxmox_cpu_delay
+    id: proxmox_cpu_warning
+
+  - trigger: numeric_state
+    entity_id: !input proxmox_cpu_temperature_entity
+    above: !input proxmox_cpu_critical_threshold
+    for: !input proxmox_cpu_delay
+    id: proxmox_cpu_critical
+
+  - trigger: numeric_state
+    entity_id: !input proxmox_cpu_temperature_entity
+    below: !input proxmox_cpu_recovery_threshold
+    for: !input proxmox_cpu_delay
+    id: proxmox_cpu_recovered
+
+  - trigger: state
+    entity_id: !input patriot_health_entity
+    from: "off"
+    to: "on"
+    id: patriot_health_problem
+
+  - trigger: state
+    entity_id: !input patriot_health_entity
+    from: "on"
+    to: "off"
+    id: patriot_health_recovered
+
+  - trigger: numeric_state
+    entity_id: !input patriot_temperature_entity
+    above: !input patriot_temp_warning_threshold
+    for: !input patriot_temp_delay
+    id: patriot_temp_warning
+
+  - trigger: numeric_state
+    entity_id: !input patriot_temperature_entity
+    above: !input patriot_temp_critical_threshold
+    for: !input patriot_temp_delay
+    id: patriot_temp_critical
+
+  - trigger: numeric_state
+    entity_id: !input patriot_temperature_entity
+    below: !input patriot_temp_recovery_threshold
+    for: !input patriot_temp_delay
+    id: patriot_temp_recovered
+
+  - trigger: numeric_state
     entity_id: !input ram_entity
     above: !input ram_warning_threshold
     for: !input ram_delay
@@ -411,9 +553,8 @@ actions:
             data:
               title: "⚠️ UPS - ON BATTERY"
               message: >-
-                Zanik zasilania sieciowego. UPS pracuje z baterii.
-                Obciążenie: {{ states(ups_load_entity_var) }}%.
-                Napięcie baterii: {{ states(ups_battery_voltage_entity_var) }} V.
+                Zanik zasilania sieciowego. Obciążenie: {{ states(ups_load_entity_var) }}%.
+                Bateria: {{ states(ups_battery_voltage_entity_var) }} V.
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -437,9 +578,8 @@ actions:
             data:
               title: "✅ UPS - ON LINE"
               message: >-
-                Zasilanie sieciowe wróciło. UPS pracuje ON LINE.
-                Napięcie wejściowe: {{ states(ups_input_voltage_entity_var) }} V.
-                Napięcie baterii: {{ states(ups_battery_voltage_entity_var) }} V.
+                Zasilanie wróciło. Napięcie wejściowe: {{ states(ups_input_voltage_entity_var) }} V.
+                Bateria: {{ states(ups_battery_voltage_entity_var) }} V.
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -458,9 +598,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "🔴 Urządzenie OFFLINE"
-              message: >-
-                {{ trigger.to_state.name }} jest offline od wymaganego czasu.
-                Encja: {{ trigger.entity_id }}
+              message: "{{ trigger.to_state.name }} jest offline od wymaganego czasu."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -481,9 +619,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "✅ Urządzenie ONLINE"
-              message: >-
-                {{ trigger.to_state.name }} ponownie działa.
-                Encja: {{ trigger.entity_id }}
+              message: "{{ trigger.to_state.name }} ponownie działa."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -500,8 +636,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "🟠 Storage - mało miejsca"
-              message: >-
-                {{ trigger.to_state.name }}: zajęcie {{ trigger.to_state.state }}%.
+              message: "{{ trigger.to_state.name }}: zajęcie {{ trigger.to_state.state }}%."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -520,8 +655,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "🔴 Storage - poziom krytyczny"
-              message: >-
-                {{ trigger.to_state.name }}: zajęcie {{ trigger.to_state.state }}%.
+              message: "{{ trigger.to_state.name }}: zajęcie {{ trigger.to_state.state }}%."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -542,8 +676,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "✅ Storage wrócił do normy"
-              message: >-
-                {{ trigger.to_state.name }}: zajęcie spadło do {{ trigger.to_state.state }}%.
+              message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% zajęte."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -561,9 +694,8 @@ actions:
             data:
               title: "🔴 Seagate - SMART"
               message: >-
-                Pogorszenie stanu SMART dysku.
-                Pending: {{ states(seagate_pending_entity_var) }},
-                Offline uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
+                Pogorszenie SMART. Pending: {{ states(seagate_pending_entity_var) }},
+                Uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
                 Reallocated: {{ states(seagate_reallocated_entity_var) }}.
           - if:
               - condition: template
@@ -573,7 +705,7 @@ actions:
                 data:
                   title: "🔴 Seagate - SMART"
                   message: >-
-                    SMART pogorszył się. Pending: {{ states(seagate_pending_entity_var) }},
+                    Pending: {{ states(seagate_pending_entity_var) }},
                     Uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
                     Reallocated: {{ states(seagate_reallocated_entity_var) }}.
           - choose: []
@@ -588,11 +720,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "✅ Seagate - SMART OK"
-              message: >-
-                Stan SMART wrócił poniżej ustawionych progów alarmowych.
-                Pending: {{ states(seagate_pending_entity_var) }},
-                Offline uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
-                Reallocated: {{ states(seagate_reallocated_entity_var) }}.
+              message: "SMART wrócił poniżej ustawionych progów alarmowych."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -600,11 +728,7 @@ actions:
               - action: "{{ mobile_notify_service_var }}"
                 data:
                   title: "✅ Seagate - SMART OK"
-                  message: >-
-                    SMART wrócił do ustawionej normy.
-                    Pending: {{ states(seagate_pending_entity_var) }},
-                    Uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
-                    Reallocated: {{ states(seagate_reallocated_entity_var) }}.
+                  message: "SMART wrócił do ustawionej normy."
 
       - conditions:
           - condition: trigger
@@ -613,8 +737,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "🟠 Seagate - wysoka temperatura"
-              message: >-
-                Temperatura dysku: {{ trigger.to_state.state }} °C.
+              message: "Temperatura dysku: {{ trigger.to_state.state }} °C."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -633,8 +756,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "🔴 Seagate - temperatura KRYTYCZNA"
-              message: >-
-                Temperatura dysku: {{ trigger.to_state.state }} °C.
+              message: "Temperatura dysku: {{ trigger.to_state.state }} °C."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -655,8 +777,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "✅ Seagate - temperatura OK"
-              message: >-
-                Temperatura dysku spadła do {{ trigger.to_state.state }} °C.
+              message: "Temperatura dysku spadła do {{ trigger.to_state.state }} °C."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -668,13 +789,164 @@ actions:
 
       - conditions:
           - condition: trigger
+            id: proxmox_cpu_warning
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🟠 Proxmox - wysoka temperatura CPU"
+              message: "CPU Package: {{ trigger.to_state.state }} °C."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🟠 Proxmox - temperatura CPU"
+                  message: "CPU Package wzrósł do {{ trigger.to_state.state }} °C."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: proxmox_cpu_critical
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Proxmox - CPU KRYTYCZNY"
+              message: "CPU Package: {{ trigger.to_state.state }} °C."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Proxmox - CPU KRYTYCZNY"
+                  message: "CPU Package wzrósł do {{ trigger.to_state.state }} °C."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: proxmox_cpu_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Proxmox - CPU OK"
+              message: "Temperatura CPU spadła do {{ trigger.to_state.state }} °C."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Proxmox - CPU OK"
+                  message: "Temperatura CPU spadła do {{ trigger.to_state.state }} °C."
+
+      - conditions:
+          - condition: trigger
+            id: patriot_health_problem
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Patriot SSD - SMART/Health"
+              message: "Patriot Burst zgłosił problem stanu SMART/Health."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Patriot SSD - SMART/Health"
+                  message: "Patriot Burst zgłosił problem stanu dysku."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: patriot_health_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Patriot SSD - Health OK"
+              message: "Stan SMART/Health Patriota wrócił do normy."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Patriot SSD - Health OK"
+                  message: "Stan dysku wrócił do normy."
+
+      - conditions:
+          - condition: trigger
+            id: patriot_temp_warning
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🟠 Patriot SSD - wysoka temperatura"
+              message: "Temperatura SSD: {{ trigger.to_state.state }} °C."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🟠 Patriot SSD - temperatura"
+                  message: "Temperatura SSD wzrosła do {{ trigger.to_state.state }} °C."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: patriot_temp_critical
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Patriot SSD - temperatura KRYTYCZNA"
+              message: "Temperatura SSD: {{ trigger.to_state.state }} °C."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Patriot SSD - temperatura KRYTYCZNA"
+                  message: "Temperatura SSD wzrosła do {{ trigger.to_state.state }} °C."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: patriot_temp_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Patriot SSD - temperatura OK"
+              message: "Temperatura SSD spadła do {{ trigger.to_state.state }} °C."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Patriot SSD - temperatura OK"
+                  message: "Temperatura SSD spadła do {{ trigger.to_state.state }} °C."
+
+      - conditions:
+          - condition: trigger
             id: ram_warning
         sequence:
           - action: persistent_notification.create
             data:
               title: "🟠 Wysokie użycie RAM"
-              message: >-
-                {{ trigger.to_state.name }}: użycie RAM {{ trigger.to_state.state }}%.
+              message: "{{ trigger.to_state.name }}: użycie RAM {{ trigger.to_state.state }}%."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -695,8 +967,7 @@ actions:
           - action: persistent_notification.create
             data:
               title: "✅ RAM wrócił do normy"
-              message: >-
-                {{ trigger.to_state.name }}: użycie RAM spadło do {{ trigger.to_state.state }}%.
+              message: "{{ trigger.to_state.name }}: użycie RAM spadło do {{ trigger.to_state.state }}%."
           - if:
               - condition: template
                 value_template: "{{ enable_mobile_notifications_var }}"
@@ -707,4 +978,4 @@ actions:
                   message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% RAM."
 
 mode: queued
-max: 30
+max: 40
