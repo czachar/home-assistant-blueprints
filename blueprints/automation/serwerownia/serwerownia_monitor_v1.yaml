@@ -1,9 +1,9 @@
 blueprint:
-  name: "Serwerownia Monitor v1.3.4"
+  name: "Serwerownia Monitor v1.3.5"
   description: >
     Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM, Seagate SMART
-    oraz host Proxmox z dyskiem Patriot SSD. Tworzy trwałe powiadomienia Home Assistant
-    oraz opcjonalne powiadomienia PUSH do aplikacji Home Assistant.
+    oraz host Proxmox z dyskiem Patriot SSD i zajęciem dysku systemowego.
+    Tworzy trwałe powiadomienia Home Assistant oraz opcjonalne powiadomienia PUSH.
   domain: automation
   source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
   homeassistant:
@@ -23,7 +23,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         ups_load_entity:
           name: "Obciążenie UPS"
           description: "Np. sensor.ups_obciazenie"
@@ -32,7 +31,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         ups_battery_voltage_entity:
           name: "Napięcie baterii UPS"
           description: "Np. sensor.ups_napiecie_baterii"
@@ -41,7 +39,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         ups_input_voltage_entity:
           name: "Napięcie wejściowe UPS"
           description: "Np. sensor.ups_napiecie_wejsciowe"
@@ -50,13 +47,11 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         ups_on_battery_state:
           name: "ON BATTERY - kod NUT"
           default: "OB"
           selector:
             text: {}
-
         ups_online_state:
           name: "ON LINE - kod NUT"
           default: "OL"
@@ -80,19 +75,16 @@ blueprint:
           selector:
             entity:
               multiple: true
-
         device_offline_state:
           name: "Stan oznaczający offline"
           default: "off"
           selector:
             text: {}
-
         device_online_state:
           name: "Stan oznaczający online"
           default: "on"
           selector:
             text: {}
-
         offline_delay:
           name: "Alarm po czasie offline"
           default:
@@ -115,7 +107,6 @@ blueprint:
               multiple: true
               filter:
                 - domain: sensor
-
         storage_warning_threshold:
           name: "Próg ostrzeżenia"
           default: 80
@@ -125,7 +116,6 @@ blueprint:
               max: 99
               step: 1
               unit_of_measurement: "%"
-
         storage_critical_threshold:
           name: "Próg krytyczny"
           default: 90
@@ -135,7 +125,6 @@ blueprint:
               max: 100
               step: 1
               unit_of_measurement: "%"
-
         storage_delay:
           name: "Czas utrzymania przekroczenia"
           default:
@@ -160,7 +149,6 @@ blueprint:
             entity:
               filter:
                 - domain: binary_sensor
-
         seagate_temperature_entity:
           name: "Temperatura Seagate"
           default: sensor.seagate_temperature
@@ -168,7 +156,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         seagate_pending_entity:
           name: "Pending sectors"
           default: sensor.seagate_pending_sectors
@@ -176,7 +163,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         seagate_uncorrectable_entity:
           name: "Offline uncorrectable"
           default: sensor.seagate_offline_uncorrectable
@@ -184,7 +170,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         seagate_reallocated_entity:
           name: "Reallocated sectors"
           default: sensor.seagate_reallocated_sectors
@@ -192,7 +177,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         seagate_temp_warning_threshold:
           name: "Temperatura - ostrzeżenie"
           default: 45
@@ -202,7 +186,6 @@ blueprint:
               max: 70
               step: 1
               unit_of_measurement: "°C"
-
         seagate_temp_critical_threshold:
           name: "Temperatura - alarm krytyczny"
           default: 50
@@ -212,7 +195,6 @@ blueprint:
               max: 80
               step: 1
               unit_of_measurement: "°C"
-
         seagate_temp_recovery_threshold:
           name: "Temperatura - powrót do normy"
           default: 43
@@ -222,7 +204,6 @@ blueprint:
               max: 60
               step: 1
               unit_of_measurement: "°C"
-
         seagate_temp_delay:
           name: "Czas utrzymania temperatury"
           default:
@@ -245,7 +226,6 @@ blueprint:
               filter:
                 - domain: sensor
                   device_class: temperature
-
         proxmox_cpu_warning_threshold:
           name: "CPU - ostrzeżenie"
           default: 75
@@ -255,7 +235,6 @@ blueprint:
               max: 95
               step: 1
               unit_of_measurement: "°C"
-
         proxmox_cpu_critical_threshold:
           name: "CPU - alarm krytyczny"
           default: 85
@@ -265,7 +244,6 @@ blueprint:
               max: 100
               step: 1
               unit_of_measurement: "°C"
-
         proxmox_cpu_recovery_threshold:
           name: "CPU - powrót do normy"
           default: 70
@@ -275,7 +253,6 @@ blueprint:
               max: 90
               step: 1
               unit_of_measurement: "°C"
-
         proxmox_cpu_delay:
           name: "Czas utrzymania temperatury CPU"
           default:
@@ -284,7 +261,14 @@ blueprint:
             seconds: 0
           selector:
             duration: {}
-
+        proxmox_disk_usage_entity:
+          name: "Zajęcie dysku systemowego Proxmox /"
+          description: "Glances 192.168.40.10 — / disk usage. Używa progów Storage 80/90%."
+          default: sensor.192_168_40_10_disk_usage
+          selector:
+            entity:
+              filter:
+                - domain: sensor
         patriot_health_entity:
           name: "Patriot SSD Health"
           description: "Natywny sensor Glances/SMART. off = zdrowy, on = problem."
@@ -293,7 +277,6 @@ blueprint:
             entity:
               filter:
                 - domain: binary_sensor
-
         patriot_temperature_entity:
           name: "Temperatura Patriot SSD"
           default: sensor.disk_serwer_patriot_burst_temperature
@@ -302,7 +285,6 @@ blueprint:
               filter:
                 - domain: sensor
                   device_class: temperature
-
         patriot_temp_warning_threshold:
           name: "SSD - ostrzeżenie"
           default: 55
@@ -312,7 +294,6 @@ blueprint:
               max: 75
               step: 1
               unit_of_measurement: "°C"
-
         patriot_temp_critical_threshold:
           name: "SSD - alarm krytyczny"
           default: 65
@@ -322,7 +303,6 @@ blueprint:
               max: 85
               step: 1
               unit_of_measurement: "°C"
-
         patriot_temp_recovery_threshold:
           name: "SSD - powrót do normy"
           default: 50
@@ -332,7 +312,6 @@ blueprint:
               max: 70
               step: 1
               unit_of_measurement: "°C"
-
         patriot_temp_delay:
           name: "Czas utrzymania temperatury SSD"
           default:
@@ -355,7 +334,6 @@ blueprint:
             entity:
               filter:
                 - domain: sensor
-
         ram_warning_threshold:
           name: "Próg RAM"
           default: 90
@@ -365,7 +343,6 @@ blueprint:
               max: 100
               step: 1
               unit_of_measurement: "%"
-
         ram_recovery_threshold:
           name: "Próg powrotu RAM do normy"
           default: 80
@@ -375,7 +352,6 @@ blueprint:
               max: 99
               step: 1
               unit_of_measurement: "%"
-
         ram_delay:
           name: "Alarm RAM po czasie"
           default:
@@ -395,19 +371,16 @@ blueprint:
           default: true
           selector:
             boolean: {}
-
         enable_mobile_notifications:
           name: "Powiadomienia PUSH do aplikacji"
           default: true
           selector:
             boolean: {}
-
         mobile_notify_service:
           name: "Usługa powiadomień telefonu"
           default: "notify.mobile_app_s24_ultra"
           selector:
             text: {}
-
         custom_actions:
           name: "Dodatkowe akcje po każdym alarmie"
           default: []
@@ -430,19 +403,16 @@ triggers:
     entity_id: !input ups_status_entity
     to: !input ups_on_battery_state
     id: ups_on_battery
-
   - trigger: state
     entity_id: !input ups_status_entity
     from: !input ups_on_battery_state
     to: !input ups_online_state
     id: ups_online
-
   - trigger: state
     entity_id: !input monitored_entities
     to: !input device_offline_state
     for: !input offline_delay
     id: device_offline
-
   - trigger: state
     entity_id: !input monitored_entities
     from: !input device_offline_state
@@ -454,13 +424,11 @@ triggers:
     above: !input storage_warning_threshold
     for: !input storage_delay
     id: storage_warning
-
   - trigger: numeric_state
     entity_id: !input storage_entities
     above: !input storage_critical_threshold
     for: !input storage_delay
     id: storage_critical
-
   - trigger: numeric_state
     entity_id: !input storage_entities
     below: !input storage_warning_threshold
@@ -471,25 +439,21 @@ triggers:
     from: "off"
     to: "on"
     id: seagate_smart_problem
-
   - trigger: state
     entity_id: !input seagate_smart_problem_entity
     from: "on"
     to: "off"
     id: seagate_smart_recovered
-
   - trigger: numeric_state
     entity_id: !input seagate_temperature_entity
     above: !input seagate_temp_warning_threshold
     for: !input seagate_temp_delay
     id: seagate_temp_warning
-
   - trigger: numeric_state
     entity_id: !input seagate_temperature_entity
     above: !input seagate_temp_critical_threshold
     for: !input seagate_temp_delay
     id: seagate_temp_critical
-
   - trigger: numeric_state
     entity_id: !input seagate_temperature_entity
     below: !input seagate_temp_recovery_threshold
@@ -501,43 +465,52 @@ triggers:
     above: !input proxmox_cpu_warning_threshold
     for: !input proxmox_cpu_delay
     id: proxmox_cpu_warning
-
   - trigger: numeric_state
     entity_id: !input proxmox_cpu_temperature_entity
     above: !input proxmox_cpu_critical_threshold
     for: !input proxmox_cpu_delay
     id: proxmox_cpu_critical
-
   - trigger: numeric_state
     entity_id: !input proxmox_cpu_temperature_entity
     below: !input proxmox_cpu_recovery_threshold
     for: !input proxmox_cpu_delay
     id: proxmox_cpu_recovered
 
+  - trigger: numeric_state
+    entity_id: !input proxmox_disk_usage_entity
+    above: !input storage_warning_threshold
+    for: !input storage_delay
+    id: proxmox_disk_warning
+  - trigger: numeric_state
+    entity_id: !input proxmox_disk_usage_entity
+    above: !input storage_critical_threshold
+    for: !input storage_delay
+    id: proxmox_disk_critical
+  - trigger: numeric_state
+    entity_id: !input proxmox_disk_usage_entity
+    below: !input storage_warning_threshold
+    id: proxmox_disk_recovered
+
   - trigger: state
     entity_id: !input patriot_health_entity
     from: "off"
     to: "on"
     id: patriot_health_problem
-
   - trigger: state
     entity_id: !input patriot_health_entity
     from: "on"
     to: "off"
     id: patriot_health_recovered
-
   - trigger: numeric_state
     entity_id: !input patriot_temperature_entity
     above: !input patriot_temp_warning_threshold
     for: !input patriot_temp_delay
     id: patriot_temp_warning
-
   - trigger: numeric_state
     entity_id: !input patriot_temperature_entity
     above: !input patriot_temp_critical_threshold
     for: !input patriot_temp_delay
     id: patriot_temp_critical
-
   - trigger: numeric_state
     entity_id: !input patriot_temperature_entity
     below: !input patriot_temp_recovery_threshold
@@ -549,7 +522,6 @@ triggers:
     above: !input ram_warning_threshold
     for: !input ram_delay
     id: ram_warning
-
   - trigger: numeric_state
     entity_id: !input ram_entity
     below: !input ram_recovery_threshold
@@ -857,6 +829,63 @@ actions:
                 data:
                   title: "✅ Proxmox - CPU OK"
                   message: "Temperatura CPU spadła do {{ trigger.to_state.state }} °C."
+
+      - conditions:
+          - condition: trigger
+            id: proxmox_disk_warning
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🟠 Proxmox - mało miejsca"
+              message: "Dysk systemowy /: zajęcie {{ trigger.to_state.state }}%."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🟠 Proxmox - dysk systemowy"
+                  message: "Dysk / ma {{ trigger.to_state.state }}% zajęte."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: proxmox_disk_critical
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Proxmox - dysk KRYTYCZNY"
+              message: "Dysk systemowy /: zajęcie {{ trigger.to_state.state }}%."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Proxmox - dysk KRYTYCZNY"
+                  message: "Dysk / ma {{ trigger.to_state.state }}% zajęte."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: proxmox_disk_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Proxmox - miejsce OK"
+              message: "Zajęcie dysku / spadło do {{ trigger.to_state.state }}%."
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Proxmox - dysk OK"
+                  message: "Zajęcie dysku / spadło do {{ trigger.to_state.state }}%."
 
       - conditions:
           - condition: trigger
