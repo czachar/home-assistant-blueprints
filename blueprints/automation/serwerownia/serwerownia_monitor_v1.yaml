@@ -1,10 +1,12 @@
 blueprint:
-  name: "Serwerownia Monitor v1"
+  name: "Serwerownia Monitor v1.1"
   description: >
     Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage i RAM.
-    Blueprint tworzy trwałe powiadomienia Home Assistant przy zaniku zasilania,
+    Blueprint tworzy trwałe powiadomienia Home Assistant oraz opcjonalne
+    powiadomienia PUSH do aplikacji Home Assistant przy zaniku zasilania,
     powrocie zasilania, dłuższym offline urządzeń, wysokim zajęciu storage
-    oraz wysokim użyciu RAM. Bez dodatkowych skryptów.
+    oraz wysokim użyciu RAM. W komunikatach UPS używa czytelnych nazw
+    ON BATTERY / ON LINE, a techniczne wartości NUT pozostają OB / OL.
   domain: automation
   source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
 
@@ -47,13 +49,15 @@ blueprint:
                 - domain: sensor
 
         ups_on_battery_state:
-          name: "Stan UPS na baterii"
+          name: "ON BATTERY - kod NUT"
+          description: "Pozostaw OB dla Twojego UPS. To techniczna wartość sensora NUT."
           default: "OB"
           selector:
             text: {}
 
         ups_online_state:
-          name: "Stan UPS online"
+          name: "ON LINE - kod NUT"
+          description: "Pozostaw OL dla Twojego UPS. To techniczna wartość sensora NUT."
           default: "OL"
           selector:
             text: {}
@@ -182,7 +186,7 @@ blueprint:
     notification_section:
       name: "Powiadomienia"
       icon: mdi:bell-alert
-      collapsed: true
+      collapsed: false
       input:
         notify_recovery:
           name: "Powiadamiaj o powrocie do normy"
@@ -190,11 +194,26 @@ blueprint:
           selector:
             boolean: {}
 
+        enable_mobile_notifications:
+          name: "Powiadomienia PUSH do aplikacji"
+          description: "Włącz wysyłanie tych samych alarmów do aplikacji Home Assistant."
+          default: true
+          selector:
+            boolean: {}
+
+        mobile_notify_service:
+          name: "Usługa powiadomień telefonu"
+          description: >
+            Dla Twojego telefonu: notify.mobile_app_s24_ultra. Jeśli zmienisz telefon,
+            wpisz tutaj nową nazwę usługi notify.mobile_app_...
+          default: "notify.mobile_app_s24_ultra"
+          selector:
+            text: {}
+
         custom_actions:
           name: "Dodatkowe akcje po każdym alarmie"
           description: >
-            Opcjonalnie możesz dodać np. notify.mobile_app_telefon.
-            Zostaw puste, jeśli wystarczą powiadomienia HA.
+            Opcjonalne akcje poza powiadomieniem HA i PUSH.
           default: []
           selector:
             action: {}
@@ -204,7 +223,8 @@ variables:
   ups_battery_voltage_entity_var: !input ups_battery_voltage_entity
   ups_input_voltage_entity_var: !input ups_input_voltage_entity
   notify_recovery_var: !input notify_recovery
-  custom_actions_var: !input custom_actions
+  enable_mobile_notifications_var: !input enable_mobile_notifications
+  mobile_notify_service_var: !input mobile_notify_service
 
 triggers:
   - trigger: state
@@ -266,11 +286,21 @@ actions:
         sequence:
           - action: persistent_notification.create
             data:
-              title: "⚠️ UPS pracuje z baterii"
+              title: "⚠️ UPS - ON BATTERY"
               message: >-
-                Zanik zasilania sieciowego.
+                Zanik zasilania sieciowego. UPS pracuje z baterii.
                 Obciążenie: {{ states(ups_load_entity_var) }}%.
                 Napięcie baterii: {{ states(ups_battery_voltage_entity_var) }} V.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "⚠️ UPS - ON BATTERY"
+                  message: >-
+                    Zanik zasilania. Obciążenie UPS: {{ states(ups_load_entity_var) }}%.
+                    Bateria: {{ states(ups_battery_voltage_entity_var) }} V.
           - choose: []
             default: !input custom_actions
 
@@ -282,11 +312,21 @@ actions:
         sequence:
           - action: persistent_notification.create
             data:
-              title: "✅ Zasilanie wróciło"
+              title: "✅ UPS - ON LINE"
               message: >-
-                UPS wrócił do pracy z sieci.
+                Zasilanie sieciowe wróciło. UPS pracuje ON LINE.
                 Napięcie wejściowe: {{ states(ups_input_voltage_entity_var) }} V.
                 Napięcie baterii: {{ states(ups_battery_voltage_entity_var) }} V.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ UPS - ON LINE"
+                  message: >-
+                    Zasilanie wróciło. Napięcie wejściowe: {{ states(ups_input_voltage_entity_var) }} V.
+                    Bateria: {{ states(ups_battery_voltage_entity_var) }} V.
 
       - conditions:
           - condition: trigger
@@ -294,10 +334,18 @@ actions:
         sequence:
           - action: persistent_notification.create
             data:
-              title: "🔴 Urządzenie offline"
+              title: "🔴 Urządzenie OFFLINE"
               message: >-
                 {{ trigger.to_state.name }} jest offline od wymaganego czasu.
                 Encja: {{ trigger.entity_id }}
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Serwerownia - OFFLINE"
+                  message: "{{ trigger.to_state.name }} jest offline."
           - choose: []
             default: !input custom_actions
 
@@ -309,10 +357,18 @@ actions:
         sequence:
           - action: persistent_notification.create
             data:
-              title: "✅ Urządzenie wróciło online"
+              title: "✅ Urządzenie ONLINE"
               message: >-
                 {{ trigger.to_state.name }} ponownie działa.
                 Encja: {{ trigger.entity_id }}
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Serwerownia - ONLINE"
+                  message: "{{ trigger.to_state.name }} ponownie działa."
 
       - conditions:
           - condition: trigger
@@ -322,8 +378,15 @@ actions:
             data:
               title: "🟠 Storage - mało miejsca"
               message: >-
-                {{ trigger.to_state.name }}:
-                zajęcie {{ trigger.to_state.state }}%.
+                {{ trigger.to_state.name }}: zajęcie {{ trigger.to_state.state }}%.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🟠 Storage - ostrzeżenie"
+                  message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% zajęte."
           - choose: []
             default: !input custom_actions
 
@@ -335,8 +398,15 @@ actions:
             data:
               title: "🔴 Storage - poziom krytyczny"
               message: >-
-                {{ trigger.to_state.name }}:
-                zajęcie {{ trigger.to_state.state }}%.
+                {{ trigger.to_state.name }}: zajęcie {{ trigger.to_state.state }}%.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Storage - KRYTYCZNY"
+                  message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% zajęte."
           - choose: []
             default: !input custom_actions
 
@@ -350,8 +420,15 @@ actions:
             data:
               title: "✅ Storage wrócił do normy"
               message: >-
-                {{ trigger.to_state.name }}:
-                zajęcie spadło do {{ trigger.to_state.state }}%.
+                {{ trigger.to_state.name }}: zajęcie spadło do {{ trigger.to_state.state }}%.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Storage OK"
+                  message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% zajęte."
 
       - conditions:
           - condition: trigger
@@ -361,8 +438,15 @@ actions:
             data:
               title: "🟠 Wysokie użycie RAM"
               message: >-
-                {{ trigger.to_state.name }}:
-                użycie RAM {{ trigger.to_state.state }}%.
+                {{ trigger.to_state.name }}: użycie RAM {{ trigger.to_state.state }}%.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🟠 RAM - wysokie użycie"
+                  message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% RAM."
           - choose: []
             default: !input custom_actions
 
@@ -376,8 +460,15 @@ actions:
             data:
               title: "✅ RAM wrócił do normy"
               message: >-
-                {{ trigger.to_state.name }}:
-                użycie RAM spadło do {{ trigger.to_state.state }}%.
+                {{ trigger.to_state.name }}: użycie RAM spadło do {{ trigger.to_state.state }}%.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ RAM OK"
+                  message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% RAM."
 
 mode: queued
 max: 20
