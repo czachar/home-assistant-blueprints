@@ -1,0 +1,383 @@
+blueprint:
+  name: "Serwerownia Monitor v1"
+  description: >
+    Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage i RAM.
+    Blueprint tworzy trwałe powiadomienia Home Assistant przy zaniku zasilania,
+    powrocie zasilania, dłuższym offline urządzeń, wysokim zajęciu storage
+    oraz wysokim użyciu RAM. Bez dodatkowych skryptów.
+  domain: automation
+  source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
+
+  input:
+    ups_section:
+      name: "UPS / Zasilanie"
+      icon: mdi:power-plug-battery
+      collapsed: false
+      input:
+        ups_status_entity:
+          name: "Status UPS (NUT)"
+          description: "Np. sensor.ups_dane_stanu"
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        ups_load_entity:
+          name: "Obciążenie UPS"
+          description: "Np. sensor.ups_obciazenie"
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        ups_battery_voltage_entity:
+          name: "Napięcie baterii UPS"
+          description: "Np. sensor.ups_napiecie_baterii"
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        ups_input_voltage_entity:
+          name: "Napięcie wejściowe UPS"
+          description: "Np. sensor.ups_napiecie_wejsciowe"
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        ups_on_battery_state:
+          name: "Stan UPS na baterii"
+          default: "OB"
+          selector:
+            text: {}
+
+        ups_online_state:
+          name: "Stan UPS online"
+          default: "OL"
+          selector:
+            text: {}
+
+    devices_section:
+      name: "VM / LXC / Urządzenia"
+      icon: mdi:server
+      collapsed: false
+      input:
+        monitored_entities:
+          name: "Monitorowane encje"
+          description: >
+            Wybierz statusy VM/LXC, np. OMV, ownCloud, Jellyfin, Pi-hole, CODEX.
+          selector:
+            entity:
+              multiple: true
+
+        device_offline_state:
+          name: "Stan oznaczający offline"
+          default: "off"
+          selector:
+            text: {}
+
+        device_online_state:
+          name: "Stan oznaczający online"
+          default: "on"
+          selector:
+            text: {}
+
+        offline_delay:
+          name: "Alarm po czasie offline"
+          default:
+            hours: 0
+            minutes: 5
+            seconds: 0
+          selector:
+            duration: {}
+
+    storage_section:
+      name: "Storage / Dyski"
+      icon: mdi:harddisk
+      collapsed: false
+      input:
+        storage_entities:
+          name: "Sensory zajętości storage"
+          description: >
+            Wybierz sensory procentowego zajęcia, np. backup OMV, Seagate, /.
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: sensor
+
+        storage_warning_threshold:
+          name: "Próg ostrzeżenia"
+          default: 80
+          selector:
+            number:
+              min: 50
+              max: 99
+              step: 1
+              unit_of_measurement: "%"
+
+        storage_critical_threshold:
+          name: "Próg krytyczny"
+          default: 90
+          selector:
+            number:
+              min: 60
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+
+        storage_delay:
+          name: "Czas utrzymania przekroczenia"
+          default:
+            hours: 0
+            minutes: 10
+            seconds: 0
+          selector:
+            duration: {}
+
+    ram_section:
+      name: "RAM"
+      icon: mdi:memory
+      collapsed: true
+      input:
+        ram_entity:
+          name: "Sensor RAM"
+          description: >
+            Najlepiej realny RAM OMV z Glances, a nie RAM widziany z Proxmoxa.
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        ram_warning_threshold:
+          name: "Próg RAM"
+          default: 90
+          selector:
+            number:
+              min: 50
+              max: 100
+              step: 1
+              unit_of_measurement: "%"
+
+        ram_recovery_threshold:
+          name: "Próg powrotu RAM do normy"
+          default: 80
+          selector:
+            number:
+              min: 20
+              max: 99
+              step: 1
+              unit_of_measurement: "%"
+
+        ram_delay:
+          name: "Alarm RAM po czasie"
+          default:
+            hours: 0
+            minutes: 10
+            seconds: 0
+          selector:
+            duration: {}
+
+    notification_section:
+      name: "Powiadomienia"
+      icon: mdi:bell-alert
+      collapsed: true
+      input:
+        notify_recovery:
+          name: "Powiadamiaj o powrocie do normy"
+          default: true
+          selector:
+            boolean: {}
+
+        custom_actions:
+          name: "Dodatkowe akcje po każdym alarmie"
+          description: >
+            Opcjonalnie możesz dodać np. notify.mobile_app_telefon.
+            Zostaw puste, jeśli wystarczą powiadomienia HA.
+          default: []
+          selector:
+            action: {}
+
+variables:
+  ups_load_entity_var: !input ups_load_entity
+  ups_battery_voltage_entity_var: !input ups_battery_voltage_entity
+  ups_input_voltage_entity_var: !input ups_input_voltage_entity
+  notify_recovery_var: !input notify_recovery
+  custom_actions_var: !input custom_actions
+
+triggers:
+  - trigger: state
+    entity_id: !input ups_status_entity
+    to: !input ups_on_battery_state
+    id: ups_on_battery
+
+  - trigger: state
+    entity_id: !input ups_status_entity
+    to: !input ups_online_state
+    id: ups_online
+
+  - trigger: state
+    entity_id: !input monitored_entities
+    to: !input device_offline_state
+    for: !input offline_delay
+    id: device_offline
+
+  - trigger: state
+    entity_id: !input monitored_entities
+    to: !input device_online_state
+    id: device_online
+
+  - trigger: numeric_state
+    entity_id: !input storage_entities
+    above: !input storage_warning_threshold
+    for: !input storage_delay
+    id: storage_warning
+
+  - trigger: numeric_state
+    entity_id: !input storage_entities
+    above: !input storage_critical_threshold
+    for: !input storage_delay
+    id: storage_critical
+
+  - trigger: numeric_state
+    entity_id: !input storage_entities
+    below: !input storage_warning_threshold
+    id: storage_recovered
+
+  - trigger: numeric_state
+    entity_id: !input ram_entity
+    above: !input ram_warning_threshold
+    for: !input ram_delay
+    id: ram_warning
+
+  - trigger: numeric_state
+    entity_id: !input ram_entity
+    below: !input ram_recovery_threshold
+    id: ram_recovered
+
+conditions: []
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: ups_on_battery
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "⚠️ UPS pracuje z baterii"
+              message: >-
+                Zanik zasilania sieciowego.
+                Obciążenie: {{ states(ups_load_entity_var) }}%.
+                Napięcie baterii: {{ states(ups_battery_voltage_entity_var) }} V.
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: ups_online
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Zasilanie wróciło"
+              message: >-
+                UPS wrócił do pracy z sieci.
+                Napięcie wejściowe: {{ states(ups_input_voltage_entity_var) }} V.
+                Napięcie baterii: {{ states(ups_battery_voltage_entity_var) }} V.
+
+      - conditions:
+          - condition: trigger
+            id: device_offline
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Urządzenie offline"
+              message: >-
+                {{ trigger.to_state.name }} jest offline od wymaganego czasu.
+                Encja: {{ trigger.entity_id }}
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: device_online
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Urządzenie wróciło online"
+              message: >-
+                {{ trigger.to_state.name }} ponownie działa.
+                Encja: {{ trigger.entity_id }}
+
+      - conditions:
+          - condition: trigger
+            id: storage_warning
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🟠 Storage - mało miejsca"
+              message: >-
+                {{ trigger.to_state.name }}:
+                zajęcie {{ trigger.to_state.state }}%.
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: storage_critical
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Storage - poziom krytyczny"
+              message: >-
+                {{ trigger.to_state.name }}:
+                zajęcie {{ trigger.to_state.state }}%.
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: storage_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Storage wrócił do normy"
+              message: >-
+                {{ trigger.to_state.name }}:
+                zajęcie spadło do {{ trigger.to_state.state }}%.
+
+      - conditions:
+          - condition: trigger
+            id: ram_warning
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🟠 Wysokie użycie RAM"
+              message: >-
+                {{ trigger.to_state.name }}:
+                użycie RAM {{ trigger.to_state.state }}%.
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: ram_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ RAM wrócił do normy"
+              message: >-
+                {{ trigger.to_state.name }}:
+                użycie RAM spadło do {{ trigger.to_state.state }}%.
+
+mode: queued
+max: 20
