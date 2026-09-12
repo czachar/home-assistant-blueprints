@@ -1,12 +1,13 @@
 blueprint:
-  name: "Serwerownia Monitor v1.1"
+  name: "Serwerownia Monitor v1.2"
   description: >
-    Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage i RAM.
+    Centralny monitoring serwerowni: UPS/NUT, VM/LXC, storage, RAM oraz Seagate SMART.
     Blueprint tworzy trwałe powiadomienia Home Assistant oraz opcjonalne
     powiadomienia PUSH do aplikacji Home Assistant przy zaniku zasilania,
-    powrocie zasilania, dłuższym offline urządzeń, wysokim zajęciu storage
-    oraz wysokim użyciu RAM. W komunikatach UPS używa czytelnych nazw
-    ON BATTERY / ON LINE, a techniczne wartości NUT pozostają OB / OL.
+    powrocie zasilania, dłuższym offline urządzeń, wysokim zajęciu storage,
+    wysokim użyciu RAM, problemie SMART dysku i wysokiej temperaturze dysku.
+    W komunikatach UPS używa czytelnych nazw ON BATTERY / ON LINE,
+    a techniczne wartości NUT pozostają OB / OL.
   domain: automation
   source_url: "https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml"
 
@@ -140,6 +141,95 @@ blueprint:
           selector:
             duration: {}
 
+    seagate_section:
+      name: "Seagate / SMART"
+      icon: mdi:harddisk-alert
+      collapsed: false
+      input:
+        seagate_smart_problem_entity:
+          name: "Seagate SMART Problem"
+          description: >
+            Binary sensor stanu SMART. U Ciebie alarmuje dopiero po pogorszeniu
+            obecnej bazy: Pending > 8, Uncorrectable > 8 lub Reallocated > 0.
+          default: binary_sensor.seagate_smart_problem
+          selector:
+            entity:
+              filter:
+                - domain: binary_sensor
+
+        seagate_temperature_entity:
+          name: "Temperatura Seagate"
+          default: sensor.seagate_temperature
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        seagate_pending_entity:
+          name: "Pending sectors"
+          default: sensor.seagate_pending_sectors
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        seagate_uncorrectable_entity:
+          name: "Offline uncorrectable"
+          default: sensor.seagate_offline_uncorrectable
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        seagate_reallocated_entity:
+          name: "Reallocated sectors"
+          default: sensor.seagate_reallocated_sectors
+          selector:
+            entity:
+              filter:
+                - domain: sensor
+
+        seagate_temp_warning_threshold:
+          name: "Temperatura - ostrzeżenie"
+          default: 45
+          selector:
+            number:
+              min: 30
+              max: 70
+              step: 1
+              unit_of_measurement: "°C"
+
+        seagate_temp_critical_threshold:
+          name: "Temperatura - alarm krytyczny"
+          default: 50
+          selector:
+            number:
+              min: 35
+              max: 80
+              step: 1
+              unit_of_measurement: "°C"
+
+        seagate_temp_recovery_threshold:
+          name: "Temperatura - powrót do normy"
+          description: "Histereza dla powiadomienia recovery."
+          default: 43
+          selector:
+            number:
+              min: 20
+              max: 60
+              step: 1
+              unit_of_measurement: "°C"
+
+        seagate_temp_delay:
+          name: "Czas utrzymania temperatury"
+          description: "Chroni przed alarmem od krótkiego skoku temperatury."
+          default:
+            hours: 0
+            minutes: 2
+            seconds: 0
+          selector:
+            duration: {}
+
     ram_section:
       name: "RAM"
       icon: mdi:memory
@@ -222,6 +312,9 @@ variables:
   ups_load_entity_var: !input ups_load_entity
   ups_battery_voltage_entity_var: !input ups_battery_voltage_entity
   ups_input_voltage_entity_var: !input ups_input_voltage_entity
+  seagate_pending_entity_var: !input seagate_pending_entity
+  seagate_uncorrectable_entity_var: !input seagate_uncorrectable_entity
+  seagate_reallocated_entity_var: !input seagate_reallocated_entity
   notify_recovery_var: !input notify_recovery
   enable_mobile_notifications_var: !input enable_mobile_notifications
   mobile_notify_service_var: !input mobile_notify_service
@@ -264,6 +357,36 @@ triggers:
     entity_id: !input storage_entities
     below: !input storage_warning_threshold
     id: storage_recovered
+
+  - trigger: state
+    entity_id: !input seagate_smart_problem_entity
+    from: "off"
+    to: "on"
+    id: seagate_smart_problem
+
+  - trigger: state
+    entity_id: !input seagate_smart_problem_entity
+    from: "on"
+    to: "off"
+    id: seagate_smart_recovered
+
+  - trigger: numeric_state
+    entity_id: !input seagate_temperature_entity
+    above: !input seagate_temp_warning_threshold
+    for: !input seagate_temp_delay
+    id: seagate_temp_warning
+
+  - trigger: numeric_state
+    entity_id: !input seagate_temperature_entity
+    above: !input seagate_temp_critical_threshold
+    for: !input seagate_temp_delay
+    id: seagate_temp_critical
+
+  - trigger: numeric_state
+    entity_id: !input seagate_temperature_entity
+    below: !input seagate_temp_recovery_threshold
+    for: !input seagate_temp_delay
+    id: seagate_temp_recovered
 
   - trigger: numeric_state
     entity_id: !input ram_entity
@@ -432,6 +555,119 @@ actions:
 
       - conditions:
           - condition: trigger
+            id: seagate_smart_problem
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Seagate - SMART"
+              message: >-
+                Pogorszenie stanu SMART dysku.
+                Pending: {{ states(seagate_pending_entity_var) }},
+                Offline uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
+                Reallocated: {{ states(seagate_reallocated_entity_var) }}.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Seagate - SMART"
+                  message: >-
+                    SMART pogorszył się. Pending: {{ states(seagate_pending_entity_var) }},
+                    Uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
+                    Reallocated: {{ states(seagate_reallocated_entity_var) }}.
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: seagate_smart_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Seagate - SMART OK"
+              message: >-
+                Stan SMART wrócił poniżej ustawionych progów alarmowych.
+                Pending: {{ states(seagate_pending_entity_var) }},
+                Offline uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
+                Reallocated: {{ states(seagate_reallocated_entity_var) }}.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Seagate - SMART OK"
+                  message: >-
+                    SMART wrócił do ustawionej normy.
+                    Pending: {{ states(seagate_pending_entity_var) }},
+                    Uncorrectable: {{ states(seagate_uncorrectable_entity_var) }},
+                    Reallocated: {{ states(seagate_reallocated_entity_var) }}.
+
+      - conditions:
+          - condition: trigger
+            id: seagate_temp_warning
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🟠 Seagate - wysoka temperatura"
+              message: >-
+                Temperatura dysku: {{ trigger.to_state.state }} °C.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🟠 Seagate - temperatura"
+                  message: "Temperatura dysku wzrosła do {{ trigger.to_state.state }} °C."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: seagate_temp_critical
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "🔴 Seagate - temperatura KRYTYCZNA"
+              message: >-
+                Temperatura dysku: {{ trigger.to_state.state }} °C.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "🔴 Seagate - temperatura KRYTYCZNA"
+                  message: "Temperatura dysku wzrosła do {{ trigger.to_state.state }} °C."
+          - choose: []
+            default: !input custom_actions
+
+      - conditions:
+          - condition: trigger
+            id: seagate_temp_recovered
+          - condition: template
+            value_template: "{{ notify_recovery_var }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              title: "✅ Seagate - temperatura OK"
+              message: >-
+                Temperatura dysku spadła do {{ trigger.to_state.state }} °C.
+          - if:
+              - condition: template
+                value_template: "{{ enable_mobile_notifications_var }}"
+            then:
+              - action: "{{ mobile_notify_service_var }}"
+                data:
+                  title: "✅ Seagate - temperatura OK"
+                  message: "Temperatura dysku spadła do {{ trigger.to_state.state }} °C."
+
+      - conditions:
+          - condition: trigger
             id: ram_warning
         sequence:
           - action: persistent_notification.create
@@ -471,4 +707,4 @@ actions:
                   message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}% RAM."
 
 mode: queued
-max: 20
+max: 30
