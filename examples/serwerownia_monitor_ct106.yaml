@@ -1,0 +1,75 @@
+# Podmień YAML jednej istniejącej automatyzacji "Serwerownia monitor".
+# To nie jest cały automations.yaml ani plik blueprintu.
+# Blueprint czachar/serwerownia_monitor_v1.yaml v1.3.7 pozostaje z GitHuba.
+# Zmiana względem zapisanej konfiguracji: dodano status CT 106 do monitored_entities.
+alias: Serwerownia monitor
+description: ''
+use_blueprint:
+  path: czachar/serwerownia_monitor_v1.yaml
+  input:
+    ups_load_entity: sensor.ups_obciazenie
+    ups_battery_voltage_entity: sensor.ups_napiecie_baterii
+    ups_input_voltage_entity: sensor.ups_napiecie_wejsciowe
+    ups_status_entity: sensor.ups_tryb_dla_monitoringu
+    monitored_entities:
+      - binary_sensor.qemu_omv_101_status
+      - binary_sensor.qemu_owncloud_102_status
+      - binary_sensor.qemu_codex_dev_103_status
+      - binary_sensor.lxc_jellyfin_104_status
+      - binary_sensor.lxc_pihole_105_status
+      - binary_sensor.lxc_satel_gateway_106_status
+    storage_entities:
+      - sensor.storage_serwer_omv_proxmox_backup_disk_used_percentage
+      - sensor.192_168_30_10_disk_usage
+      - sensor.192_168_30_10_srv_dev_disk_by_uuid_9aaa886baa8845ab_disk_usage
+      - sensor.192_168_40_10_disk_usage
+    ram_entity: sensor.192_168_30_10_memory_usage
+    seagate_temp_warning_threshold: 45
+    seagate_temp_recovery_threshold: 43
+    seagate_temp_delay:
+      hours: 0
+      minutes: 2
+      seconds: 0
+    patriot_temp_warning_threshold: 55
+    patriot_temp_critical_threshold: 65
+    patriot_temp_recovery_threshold: 50
+    patriot_temp_delay:
+      hours: 0
+      minutes: 2
+      seconds: 0
+    proxmox_cpu_warning_threshold: 75
+    proxmox_cpu_recovery_threshold: 70
+    proxmox_cpu_delay:
+      hours: 0
+      minutes: 2
+      seconds: 0
+    ups_on_battery_state: OB
+    ups_online_state: OL
+    device_offline_state: 'off'
+    device_online_state: 'on'
+    offline_delay:
+      hours: 0
+      minutes: 5
+      seconds: 0
+    storage_warning_threshold: 80
+    storage_critical_threshold: 90
+    storage_delay:
+      hours: 0
+      minutes: 10
+      seconds: 0
+    seagate_smart_problem_entity: binary_sensor.seagate_smart_problem
+    seagate_temperature_entity: sensor.seagate_temperature
+    seagate_pending_entity: sensor.seagate_pending_sectors
+    seagate_uncorrectable_entity: sensor.seagate_offline_uncorrectable
+    seagate_reallocated_entity: sensor.seagate_reallocated_sectors
+    seagate_temp_critical_threshold: 50
+    proxmox_cpu_temperature_entity: sensor.192_168_40_10_package_id_0_temperature
+    proxmox_cpu_critical_threshold: 85
+    patriot_health_entity: binary_sensor.disk_serwer_patriot_burst_health
+    patriot_temperature_entity: sensor.disk_serwer_patriot_burst_temperature
+    ram_warning_threshold: 90
+    ram_recovery_threshold: 80
+    ram_delay:
+      hours: 0
+      minutes: 10
+      seconds: 0
