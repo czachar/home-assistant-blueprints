@@ -1,151 +1,186 @@
-# Powiadomienia SATEL i monitoring CT 106
+# SATEL — blueprinty powiadomień
 
-Pakiet dla istniejącego SATEL Gateway 0.11, identyfikatora MQTT `integra_test`
-i telefonu `notify.mobile_app_s24_ultra`. Gateway w CT 106 pozostaje tylko do odczytu.
-Ta paczka dodaje konfigurację po stronie Home Assistant.
+Dwa blueprinty dla SATEL Gateway 0.11 i nowszych wersji zachowujących te same
+atrybuty encji. Automatyzacje konfigurujesz w formularzach Home Assistant.
+Wspólna baza pamięci jest instalowana raz. Wymagany Home Assistant 2025.10.0 lub nowszy.
 
-## Pliki do pobrania
+| Blueprint | Działanie | Import |
+|---|---|---|
+| Alarmy i awarie | Alarmy wejść/stref, sabotaże, dym/zalanie i zmiany szczegółowych awarii | [Importuj do HA](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fczachar%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fsatel%2Fsatel_alarm_notifications.yaml) |
+| Utrata i powrót danych | Brak stanów SATEL, jeden komunikat po powrocie danych | [Importuj do HA](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fczachar%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fsatel%2Fsatel_connectivity_notifications.yaml) |
+| Serwerownia Monitor 1.3.7 | Istniejący monitoring serwerów, UPS i zasobów; tutaj dodajesz CT 106 | [Importuj do HA](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fczachar%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fserwerownia%2Fserwerownia_monitor_v1.yaml) |
 
-- [Pakiet powiadomień SATEL — YAML](https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/packages/satel_notifications.yaml)
-- [Konfiguracja automatyzacji Serwerowni z CT 106 — YAML](https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/examples/serwerownia_monitor_ct106.yaml)
-- [Całe repozytorium — ZIP](https://github.com/czachar/home-assistant-blueprints/archive/refs/heads/main.zip)
+Link importu otwiera Twoją instancję HA przez My Home Assistant. Jeśli nie działa,
+wejdź do **Ustawienia → Automatyzacje i sceny → Blueprinty → Importuj blueprint**
+i wklej adres odpowiedniego pliku:
 
-W repozytorium pakiet znajduje się w `packages/`, konfiguracja istniejącej
-automatyzacji w `examples/`, a ta instrukcja w `docs/satel-notifications/`.
-Pakiet SATEL wymaga instalacji opisanej poniżej; ponowny import samego blueprintu
-Serwerowni nie dodaje pakietu ani CT 106 do istniejącej automatyzacji.
+- [Alarmy i awarie — GitHub](https://github.com/czachar/home-assistant-blueprints/blob/main/blueprints/automation/satel/satel_alarm_notifications.yaml)
+- [Utrata i powrót danych — GitHub](https://github.com/czachar/home-assistant-blueprints/blob/main/blueprints/automation/satel/satel_connectivity_notifications.yaml)
 
-## 1. Dodaj CT 106 do obecnej automatyzacji
+## 1. Jednorazowa instalacja bazy pamięci
 
-Najkrótsza droga: w istniejącej automatyzacji **Serwerownia monitor**, w grupie
-**VM / LXC / Urządzenia → Monitorowane encje**, dodaj encję **Status** urządzenia
-**LXC satel-gateway (106)**. Pozostaw dotychczasowe pozycje.
+Blueprint automatyzacji tworzy automatyzację, ale nie tworzy dodatkowych
+sensorów szablonowych ani pomocników. Dlatego pamięć ostatnich potwierdzonych
+alarmów, sensor łączności i przygotowanie po restarcie pozostają w bazie YAML.
+Baza sama nie wysyła powiadomień.
 
-W repozytorium jest też pełna konfiguracja `examples/serwerownia_monitor_ct106.yaml`, oparta na
-Twojej zapisanej konfiguracji. Możesz wkleić ją w edytorze YAML tej jednej
-automatyzacji. Nie zastępuj nią całego `automations.yaml` ani pliku blueprintu.
-Jeśli od czasu wcześniejszego zapisu zmieniałeś ustawienia automatyzacji, dodaj
-CT 106 w interfejsie zamiast podmieniać całą konfigurację.
+Pobierz [satel_notifications_base.yaml](https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/packages/satel_notifications_base.yaml) i zapisz jego zawartość jako:
 
-Plik używa `binary_sensor.lxc_satel_gateway_106_status`. Jeśli encja została
-ręcznie przemianowana, wybierz jej aktualny identyfikator z urządzenia CT 106.
-Zachowano pięć minut zwłoki offline i normalizację statusu UPS przez
-`sensor.ups_tryb_dla_monitoringu`.
+```text
+/config/packages/satel_notifications.yaml
+```
 
-Blueprint pobrany i sprawdzony na GitHubie: **Serwerownia Monitor v1.3.7**.
-Pozostaje pod dotychczasową ścieżką `czachar/serwerownia_monitor_v1.yaml` w HA.
+**Jeśli masz poprzedni pełny pakiet `satel_notifications.yaml`, zastąp jego
+zawartość bazą. Nie instaluj obu plików równocześnie.** Zachowano identyfikatory
+encji, unique_id i strukturę pamięci, aby wykorzystać zapisane wcześniej stany.
+Kopię poprzedniego pliku przechowuj poza katalogiem `packages`, żeby HA jej nie ładował.
+Nie kopiuj całego katalogu `packages` z repozytorium — zawiera oba warianty.
 
-## 2. Zainstaluj powiadomienia SATEL
-
-Skopiuj plik `packages/satel_notifications.yaml` do katalogu `packages` w
-katalogu konfiguracji Home Assistant, zwykle jako
-`/config/packages/satel_notifications.yaml`.
-
-Plik jest pakietem HA, zawierającym encje pomocnicze i automatyzacje. Nie jest
-blueprintem ani kartą dashboardu.
-
-Jeśli nie masz jeszcze włączonego ładowania pakietów, dopisz do
-`configuration.yaml`:
+Jeżeli pakiety nie są jeszcze włączone, w `configuration.yaml` dodaj:
 
 ```yaml
 homeassistant:
   packages: !include_dir_named packages
 ```
 
-Jeżeli sekcja `homeassistant:` już istnieje, dopisz tylko `packages:` do niej.
-Nie twórz drugiej sekcji o tej samej nazwie. Jeżeli pakiety są już ładowane
-przez `!include_dir_named`, wystarczy skopiowanie pliku do właściwego katalogu.
-Jeśli używasz `!include_dir_merge_named`, ten format wymaga dodatkowego klucza
-`satel_notifications:` nad zawartością pliku i wcięcia całej zawartości o dwie spacje.
+Jeśli sekcja `homeassistant:` istnieje, dopisz tylko `packages:` do niej. Przy
+istniejącym `!include_dir_named` użyj już skonfigurowanego katalogu. Wariant
+`!include_dir_merge_named` wymaga dodatkowego klucza `satel_notifications:`
+nad zawartością pliku oraz wcięcia całej zawartości o dwie spacje.
 
-Uruchom sprawdzenie konfiguracji w **Narzędziach deweloperskich → YAML**.
-Po poprawnym wyniku uruchom ponownie Home Assistant, aby wczytać cały pakiet.
+Uruchom **Narzędzia deweloperskie → YAML → Sprawdź konfigurację**, a następnie
+pełny restart Home Assistant. Powinny pojawić się:
 
-Pakiet używa encji:
+- `sensor.satel_powiadomienia_pamiec`;
+- `binary_sensor.satel_powiadomienia_lacznosc`;
+- `input_boolean.satel_powiadomienia_gotowe`;
+- `input_boolean.satel_powiadomienia_awaria_lacznosci`.
 
-- `sensor.satel_powiadomienia_pamiec` — ostatnie potwierdzone aktywne przyczyny;
-- `binary_sensor.satel_powiadomienia_lacznosc` — dostępność danych gatewaya;
-- `input_boolean.satel_powiadomienia_gotowe` — wewnętrzna gotowość po rozruchu;
-- `input_boolean.satel_powiadomienia_awaria_lacznosci` — pamięć zgłoszonej utraty łączności.
+Baza obsługuje jeden gateway, domyślnie `integra_test`. Dla innego identyfikatora
+zmień wszystkie wystąpienia `integra_test` w bazie i ustaw ten sam identyfikator
+w blueprintcie łączności. Nie kopiuj bazy pod kolejną nazwą dla drugiej centrali:
+identyfikatory pomocników musiałyby być inne. Nie przełączaj istniejącej pamięci
+między centralami — zawiera potwierdzone alarmy poprzedniego źródła.
 
-Przy pierwszym uruchomieniu, po około 10 sekundach przygotowania, pakiet zgłasza
-zastane aktywne przyczyny w jednym podsumowaniu, również problemy aktywne przed
-instalacją pakietu. Po zwykłym restarcie odtworzona pamięć
-zapobiega ponownemu zgłaszaniu niezmienionych przyczyn. Nie zmieniaj ręcznie
-wewnętrznych pomocników ani identyfikatorów encji pakietu.
+## 2. Utwórz dwie automatyzacje z blueprintów
 
-## Zakres powiadomień
+Zaimportuj oba blueprinty z tabeli powyżej. Przy każdym wybierz **Utwórz
+automatyzację**, sprawdź wartości i zapisz:
 
-Stan CT 106 obsługuje istniejąca automatyzacja serwerowni. Pakiet SATEL obsługuje
-dane alarmowe centrali oraz dostępność danych gatewaya niezależnie od stanu kontenera.
-Encje SATEL są wybierane na podstawie oznaczeń publikowanych przez gateway;
-nie trzeba wpisywać osobno każdego nowo wykrytego wejścia.
+1. **SATEL — alarmy i awarie**: wybierz sensor pamięci i pomocnik gotowości
+   z bazy. Domyślne wartości pasują do Twojej instalacji.
+2. **SATEL — utrata i powrót danych**: wybierz sensor łączności, pomocnik
+   gotowości i pomocnik zgłoszonego braku danych. Gateway ID pozostaw `integra_test`.
 
-Wiadomości są wysyłane na `notify.mobile_app_s24_ultra`. Równocześnie aktualizowane
-są dwa trwałe powiadomienia w HA: ostatnia zmiana alarmów i stan łączności. Treść
-PUSH zawiera do 12 nowych i do 12 ustępujących przyczyn; pełne ostatnie potwierdzone
-stany są w atrybucie `active` sensora pamięci. Błąd usługi telefonu nie blokuje
-utworzonego wcześniej komunikatu w HA.
+Oba formularze umożliwiają włączenie/wyłączenie trwałych powiadomień w HA,
+PUSH i informacji o ustąpieniu/powrocie. W sekcji działań telefonu jest gotowa
+usługa **`notify.mobile_app_s24_ultra`**. Możesz wybrać inną usługę powiadomień
+lub dodać kilku odbiorców, zachowując szablony:
 
-Ogólna flaga awarii systemu jest śledzona niezależnie od listy szczegółów.
-Może więc wystąpić obok konkretnej awarii akumulatora. Wynik zero dla części
-diagnostyki 1/4 nie kasuje aktywnej ogólnej flagi awarii.
+```yaml
+title: "{{ notification_title }}"
+message: "{{ notification_message }}"
+```
 
-Alarm łączności pojawia się po 60 sekundach braku wszystkich dostępnych stanów
-binarnych. Po utracie pakietów może wcześniej upłynąć czas ważności MQTT;
-dodatkowy nadzór co 15 sekund zabezpiecza obsługę po przeładowaniu. Powrót oznacza
-ponowne pojawienie się danych, a nie kompletność każdego odczytu czy brak alarmów.
+Sekcja działań służy wyłącznie wysyłce przygotowanej wiadomości. Nie dodawaj tam
+wielominutowych opóźnień ani oczekiwania na stan — utrudnia to kolejkowanie kolejnych
+alarmów i aktualizację pamięci łączności. Jeżeli dodajesz kilku odbiorców, ustaw
+kontynuowanie po błędzie dla każdej akcji, aby błąd pierwszego nie pominął następnych.
 
-Szczegółowe awarie pochodzą z bieżącej listy `active` i są rozróżniane po
-identyfikatorach. Zmiana dwóch awarii na dwie inne jest zmianą przyczyn i podlega
-powiadomieniu. Pamięć awarii centrali nie jest traktowana jak nowa bieżąca awaria.
-Stan `unknown`, `unavailable`, niepełny zestaw ani usunięcie encji nie potwierdzają
-ustąpienia awarii.
+Utwórz **jedną instancję każdego blueprintu dla tej bazy**. Pozostaw tylko
+wbudowaną w bazę automatyzację przygotowania oraz dwie nowe automatyzacje wysyłki.
+Stare automatyzacje wysyłki z pełnego pakietu nie mogą działać równolegle,
+ponieważ powodowałoby to zdublowane wiadomości.
 
-Gateway 0.11 rozpoznaje wybrane części diagnostyki, w tym sabotaże ekspanderów i
-manipulatorów LCD, problemy ich komunikacji oraz flagi zasilania i akumulatorów.
-Ten pakiet nie dodaje odczytu napięć w V ani jakości radia ABAX2 w procentach.
+Jeśli baza działała już przed utworzeniem nowych automatyzacji, zastane alarmy
+są zapisane w pamięci. Sam import blueprintu nie wysyła ich ponownie jako nowych.
+Kolejne zmiany przyczyn są zgłaszane normalnie. Ręczne **Uruchom akcje** nie jest
+testem zdarzenia alarmowego — do jego obsługi potrzebne są poprzedni i nowy stan.
+
+## 3. Dodaj CT 106 w istniejącym blueprintcie Serwerowni
+
+Serwerownia już korzysta z blueprintu **Serwerownia Monitor v1.3.7**. Otwórz
+istniejącą automatyzację i w **VM / LXC / Urządzenia → Monitorowane encje** dodaj
+`binary_sensor.lxc_satel_gateway_106_status`, zachowując pozostałe pozycje.
+Nie twórz drugiej automatyzacji dla całej serwerowni.
+
+[Gotowa konfiguracja istniejącej automatyzacji z CT 106](https://github.com/czachar/home-assistant-blueprints/blob/main/examples/serwerownia_monitor_ct106.yaml)
+pozostaje dostępna jako przykład. To konfiguracja jednej automatyzacji korzystającej
+z blueprintu, a nie osobny blueprint ani cały plik `automations.yaml`.
+
+## Zachowanie i zakres
+
+- Nowo wykryte wejścia są uwzględniane automatycznie dzięki oznaczeniom
+  `satel_gateway`, `satel_kind`, `satel_id` i `satel_field`.
+- Zgłaszane są alarmy/sabotaże oraz naruszenia o klasie `smoke` lub `moisture`.
+  Zwykły ruch PIR, otwarcie drzwi, blokady, pamięci alarmów i wyjścia nie wysyłają
+  alarmowego PUSH tylko dlatego, że zmieniły stan.
+- Szczegółowe awarie są porównywane po identyfikatorach. Zmiana A na B wywołuje
+  powiadomienie także wtedy, gdy liczba awarii pozostała taka sama.
+- `unknown`, `unavailable`, usunięte źródło i niepełny odczyt nie kasują
+  potwierdzonych wcześniej alarmów. Poprawne `off` kasuje tylko własny sygnał.
+- Ogólna flaga awarii pozostaje niezależna od odczytanych szczegółów części 1/4.
+- Baza odczekuje 60 sekund braku wszystkich dostępnych stanów binarnych. Przy
+  utracie pakietów może wcześniej upłynąć czas ważności danych MQTT. Blueprint
+  sprawdza sytuację również co 15 sekund. Po rozruchu obowiązuje dodatkowa ochrona
+  przez pierwsze 50 sekund gotowości bazy, bez drugiego pełnego opóźnienia 60 sekund
+  w normalnej pracy.
+- Powrót łączności oznacza obecność danych, a nie brak alarmów ani kompletność
+  wszystkich odczytów. Działający CT 106 nie gwarantuje działającego ETHM/MQTT.
+- Wyłączenie wiadomości o powrocie nie blokuje resetowania pamięci zgłoszonej
+  utraty łączności. Następna przerwa nadal może zostać zgłoszona.
+- Wiadomość wymienia do 12 nowych i 12 ustępujących przyczyn. Pełna pamięć jest
+  w atrybucie `active` sensora. Przy wyłączonych wiadomościach o ustąpieniu
+  raport zawiera wyłącznie nowe przyczyny.
+
+Gateway nadal pracuje tylko do odczytu. Blueprinty nie dodają nowych komend
+SATEL, napięć zasilania w V ani procentowej jakości radia ABAX2. Obejmują dane,
+które gateway już publikuje, w tym obsługiwane szczegółowe awarie modułów
+oraz manipulatorów.
 
 ## Sprawdzenie po instalacji
 
-1. Sprawdź, czy nowe encje pakietu istnieją i nie pokazują błędów szablonów.
-2. Zmień bezpiecznie stan testowego wejścia alarmowego na stanowisku testowym.
-   Sprawdź komunikat zawierający nazwę/identyfikator oraz informację po ustąpieniu.
-   Zwykłe poruszanie się przed czujką PIR nie służy do testu alarmu strefy.
-3. Do sprawdzenia łączności na stanowisku testowym zatrzymaj usługę gatewaya
-   w CT 106 na ponad minutę. Kontener może przez cały czas działać. Po uruchomieniu
-   usługi powinny powrócić dane, a informacja o powrocie dotyczy zakończonej awarii
-   komunikacji. Nie traktuj zatrzymania gatewaya jako testu alarmu samej centrali.
+1. Upewnij się, że pomocniki istnieją, gotowość ma stan `on`, a nowe automatyzacje
+   są włączone. Sprawdź dziennik HA pod kątem błędów konfiguracji i szablonów.
+2. Na stanowisku testowym wywołaj kontrolowaną zmianę sygnału alarmowego i sprawdź
+   wiadomość oraz informację po jego ustąpieniu. Zwykłe naruszenie PIR nie jest
+   alarmem strefy.
+3. Na stanowisku testowym zatrzymaj samą usługę gatewaya na czas dłuższy niż
+   wygaśnięcie MQTT i 60 sekund zwłoki. Sprawdź komunikat braku danych, a po
+   uruchomieniu — jeden komunikat o ich powrocie. Nie trzeba zatrzymywać centrali.
 
-## Granice działania
+Pliki i szablony są sprawdzane lokalnie, ale publikacja na GitHubie nie oznacza
+przeprowadzenia testu w Twoim HA. PUSH zależy także od HA, usługi telefonu i sieci;
+zapisana pamięć nie stanowi potwierdzenia doręczenia. Krótkie zdarzenia nieodebrane
+przez gateway/HA oraz impulsy kończące się w oknie inicjalizacji nie mogą być
+odtworzone. Usunięta lub wyłączona encja nie potwierdza ustąpienia jej alarmu.
 
-Pakiet nie uruchamia odczytów SATEL i nie steruje centralą. Reaguje na dane,
-które docierają do HA. Nie odtworzy krótkiego zdarzenia, którego gateway lub HA
-nie odebrały, ani impulsu zakończonego w początkowym, około 10-sekundowym oknie
-inicjalizacji. PUSH zależy również od działania HA, usługi powiadomień, sieci i telefonu.
-Pamięć stanów nie jest potwierdzeniem dostarczenia wiadomości na telefon.
-Po przeładowaniu samych pomocników odzyskanie gotowości może potrwać do około
-70 sekund. Do pierwszej instalacji zalecany jest pełny restart HA opisany wyżej.
-Wyłączone lub usunięte źródło nie potwierdza ustąpienia jego wcześniejszego alarmu;
-taki wpis pozostaje w pamięci do poprawnego odczytu `off` albo świadomego
-uporządkowania konfiguracji po zmianie instalacji.
+## Aktualizacja
 
-## Sprawdzenie plików przed wydaniem
+Blueprinty aktualizuj przez ponowny import/reimport w HA z tych samych adresów.
+Zachowuj istniejące automatyzacje i ich ustawienia. Jeśli zmienia się baza pamięci,
+instrukcja wydania wskaże konieczność podmiany pliku i restartu HA. Zwykła zmiana
+odbiorcy albo opcji powiadomień odbywa się w formularzu automatyzacji.
 
-Przeprowadzono lokalne parsowanie YAML i wykonanie szablonów na przykładowych
-zdarzeniach: nowe/ustępujące przyczyny, zmiana dwóch awarii na dwie inne,
-niedostępność i częściowy odczyt, zduplikowane źródła, zmiana nazwy, odtworzenie
-pamięci, krótkie zdarzenie on/off, nowe wejścia oraz niezależna ogólna flaga awarii.
-Test nie zastępuje kontroli konfiguracji i próby powiadomienia w Twoim HA.
+Pełny stary pakiet `packages/satel_notifications.yaml` pozostaje w repozytorium
+jako wariant bez blueprintów. Wybierz jeden wariant instalacji; nie łącz obu.
 
-## Źródła
+## Lokalne testy plików
 
-- Aktualny blueprint użytkownika:
-  https://github.com/czachar/home-assistant-blueprints/blob/main/blueprints/automation/serwerownia/serwerownia_monitor_v1.yaml
-- Pobrany plik miał Git blob SHA `d6551b00261b060e1796819607a9bd4c3deaebb0` i nazwę wersji `Serwerownia Monitor v1.3.7`.
-- Pakiety Home Assistant: https://www.home-assistant.io/docs/configuration/packages/
-- Szablony wyzwalane zdarzeniami i odtwarzanie ich atrybutów:
-  https://www.home-assistant.io/integrations/template/
+Testy sprawdzają podstawienie pól blueprintu, wykonanie szablonów na zdarzeniach,
+wyłączenie recovery, wybranego odbiorcę, brak danych i ochronę rozruchu. Nie
+uruchamiają Home Assistant ani nie wysyłają żadnych wiadomości.
 
-Pliki przeszły opisane wyżej testy lokalne. Publikacja na GitHubie nie instaluje
-konfiguracji w Home Assistant; instalacja i próba w HA pozostają do wykonania.
+Z katalogu repozytorium, w osobnym środowisku Python:
+
+```sh
+python -m pip install -r tests/requirements.txt
+python tests/check_blueprints.py
+```
+
+## Dokumentacja HA
+
+- [Schemat blueprintów](https://www.home-assistant.io/docs/blueprint/schema/)
+- [Selektory pól formularza](https://www.home-assistant.io/docs/blueprint/selectors/)
+- [Pakiety konfiguracji](https://www.home-assistant.io/docs/configuration/packages/)
+- [Sensory szablonowe i odtwarzanie pamięci](https://www.home-assistant.io/integrations/template/)

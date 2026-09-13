@@ -1,0 +1,149 @@
+blueprint:
+  name: SATEL — alarmy, sabotaże i awarie 1.1.0
+  description: >-
+    Wymaga bazy packages/satel_notifications_base.yaml, instalowanej zamiast
+    starego pakietu satel_notifications.yaml. Baza rozpoznaje encje gatewaya
+    i pamięta ostatnie potwierdzone aktywne sygnały. Ten blueprint wysyła zmiany
+    przyczyn, także przy niezmienionej liczbie awarii. Nie interpretuje braku
+    danych jako ustąpienia. Alarmy nie są wyciszane w trybie serwisowym.
+    Utwórz jedną automatyzację dla danej encji pamięci; kilku odbiorców dodaj
+    w polu działań PUSH. Działanie ręczne „Uruchom” nie symuluje alarmu.
+  domain: automation
+  source_url: https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/satel/satel_alarm_notifications.yaml
+  homeassistant:
+    min_version: 2025.10.0
+  input:
+    memory_entity:
+      name: Pamięć potwierdzonych sygnałów
+      description: Sensor utworzony przez bazę SATEL, z atrybutami schema i active.
+      default: sensor.satel_powiadomienia_pamiec
+      selector:
+        entity:
+          filter:
+            domain: sensor
+    ready_entity:
+      name: Gotowość po rozruchu
+      default: input_boolean.satel_powiadomienia_gotowe
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+    send_recovery:
+      name: Powiadamiaj o potwierdzonym ustąpieniu
+      description: Wyłączenie ukrywa ustąpienia także w wiadomości zawierającej nowe alarmy.
+      default: true
+      selector:
+        boolean: {}
+    persistent_enabled:
+      name: Powiadomienia w Home Assistant
+      description: Jedna aktualizowana wiadomość z ostatnią zmianą. Pełna pamięć pozostaje w sensorze.
+      default: true
+      selector:
+        boolean: {}
+    mobile_enabled:
+      name: Powiadomienia PUSH
+      default: true
+      selector:
+        boolean: {}
+    mobile_actions:
+      name: Działania PUSH — telefon lub kilku odbiorców
+      description: >-
+        Wybierz usługę telefonu. W jej danych zachowaj title jako
+        {{ notification_title }} i message jako {{ notification_message }}.
+        Możesz dodać kilka działań dla różnych odbiorców. Ustaw continue_on_error
+        przy każdym odbiorcy, jeśli błąd jednego nie ma blokować następnych.
+      default:
+        - action: notify.mobile_app_s24_ultra
+          continue_on_error: true
+          data:
+            title: "{{ notification_title }}"
+            message: "{{ notification_message }}"
+            data:
+              group: satel
+      selector:
+        action: {}
+
+variables:
+  selected_memory_entity: !input memory_entity
+  include_recovery: !input send_recovery
+  notification_id: "{{ 'satel_alarm_changes_' ~ selected_memory_entity | replace('.', '_') }}"
+
+triggers:
+  # Bez from/to: różnice samych atrybutów również wyzwalają automatyzację.
+  - trigger: state
+    entity_id: !input memory_entity
+
+conditions:
+  - condition: state
+    entity_id: !input ready_entity
+    state: "on"
+  - condition: template
+    value_template: >-
+      {{ trigger is defined and trigger.from_state is defined and
+         trigger.to_state is defined and trigger.from_state is not none and
+         trigger.to_state is not none and
+         trigger.from_state.attributes.get('schema') == 'satel_notifications_v1' and
+         trigger.to_state.attributes.get('schema') == 'satel_notifications_v1' and
+         trigger.from_state.attributes.get('active') is mapping and
+         trigger.to_state.attributes.get('active') is mapping and
+         not trigger.to_state.attributes.get('restored', false) }}
+
+actions:
+  # „Uruchom” może ominąć warunki główne; bez zdarzenia nie wysyłamy niczego.
+  - condition: template
+    value_template: >-
+      {{ trigger is defined and trigger.from_state is defined and
+         trigger.to_state is defined and trigger.from_state is not none and
+         trigger.to_state is not none and
+         trigger.from_state.attributes.get('schema') == 'satel_notifications_v1' and
+         trigger.to_state.attributes.get('schema') == 'satel_notifications_v1' and
+         trigger.from_state.attributes.get('active') is mapping and
+         trigger.to_state.attributes.get('active') is mapping and
+         not trigger.to_state.attributes.get('restored', false) }}
+  - variables:
+      before: "{{ trigger.from_state.attributes.active }}"
+      after: "{{ trigger.to_state.attributes.active }}"
+  - variables:
+      added: "{{ after.keys() | reject('in', before.keys()) | list | sort }}"
+      cleared: "{{ (before.keys() | reject('in', after.keys()) | list | sort) if include_recovery else [] }}"
+  - condition: template
+    value_template: "{{ added | count > 0 or cleared | count > 0 }}"
+  - variables:
+      notification_title: "{{ 'SATEL — aktywne zdarzenia' if added | count > 0 else 'SATEL — potwierdzone ustąpienie' }}"
+      notification_message: |-
+        {% if added | count > 0 %}
+        Aktywne:
+        {% for key in added[:12] %}
+        • {{ after[key].name }}
+        {% endfor %}
+        {% if added | count > 12 %}
+        … oraz {{ added | count - 12 }} kolejnych. Szczegóły w HA.
+        {% endif %}
+        {% endif %}
+        {% if cleared | count > 0 %}
+        Potwierdzono ustąpienie:
+        {% for key in cleared[:12] %}
+        • {{ before[key].name }}
+        {% endfor %}
+        {% if cleared | count > 12 %}
+        … oraz {{ cleared | count - 12 }} kolejnych.
+        {% endif %}
+        {% endif %}
+        Dotyczy wskazanych sygnałów; pozostałe mogą nadal zgłaszać problem lub być niedostępne.
+  - alias: Ostatnia zmiana w powiadomieniach HA
+    enabled: !input persistent_enabled
+    action: persistent_notification.create
+    continue_on_error: true
+    data:
+      notification_id: "{{ notification_id }}"
+      title: "{{ notification_title }}"
+      message: "{{ notification_message }}"
+  - alias: Wybrane działania PUSH
+    enabled: !input mobile_enabled
+    continue_on_error: true
+    sequence: !input mobile_actions
+
+mode: queued
+max: 100
+max_exceeded: warning
+

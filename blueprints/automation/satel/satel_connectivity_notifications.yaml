@@ -1,0 +1,206 @@
+blueprint:
+  name: SATEL — utrata i powrót danych 1.1.0
+  description: >-
+    Wymaga bazy packages/satel_notifications_base.yaml, instalowanej zamiast
+    starego pakietu satel_notifications.yaml. Sensor łączności w bazie ma stałą
+    zwłokę wyłączenia 60 s. Blueprint dodatkowo czeka na 50 s gotowości po
+    rozruchu, aby odtworzony stan OFF nie powodował natychmiastowego alarmu.
+    Sprawdza też bezpośrednio bieżące stany encji gatewaya. Co najmniej jeden
+    poprawny stan binarny oznacza powrót danych, nie kompletność wszystkich
+    odczytów ani ustąpienie fizycznych alarmów. Utwórz tylko jedną automatyzację
+    dla wybranego pomocnika zgłoszonej przerwy.
+  domain: automation
+  source_url: https://raw.githubusercontent.com/czachar/home-assistant-blueprints/main/blueprints/automation/satel/satel_connectivity_notifications.yaml
+  homeassistant:
+    min_version: 2025.10.0
+  input:
+    connectivity_entity:
+      name: Łączność SATEL
+      default: binary_sensor.satel_powiadomienia_lacznosc
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+    ready_entity:
+      name: Gotowość po rozruchu
+      default: input_boolean.satel_powiadomienia_gotowe
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+    outage_helper:
+      name: Pamięć zgłoszonej przerwy
+      description: Pomocnik bazy. Zapobiega powtarzaniu wiadomości o tej samej przerwie.
+      default: input_boolean.satel_powiadomienia_awaria_lacznosci
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+    gateway_id:
+      name: Identyfikator gatewaya
+      description: Wartość atrybutu satel_gateway, zgodna z konfiguracją bazy i MQTT_GATEWAY_ID.
+      default: integra_test
+      selector:
+        text: {}
+    send_recovery:
+      name: Powiadamiaj o powrocie danych
+      description: Pamięć przerwy jest czyszczona po powrocie także przy wyłączonej wiadomości.
+      default: true
+      selector:
+        boolean: {}
+    persistent_enabled:
+      name: Powiadomienia w Home Assistant
+      default: true
+      selector:
+        boolean: {}
+    mobile_enabled:
+      name: Powiadomienia PUSH
+      default: true
+      selector:
+        boolean: {}
+    mobile_actions:
+      name: Działania PUSH — telefon lub kilku odbiorców
+      description: >-
+        Wybierz usługę telefonu. Zachowaj title jako {{ notification_title }}
+        i message jako {{ notification_message }}. Możesz dodać kilku odbiorców.
+        Zmienne notification_group i notification_id zapewniają oddzielną grupę
+        i tag tej łączności. Ustaw continue_on_error przy każdym odbiorcy,
+        jeśli błąd jednego nie ma blokować następnych.
+      default:
+        - action: notify.mobile_app_s24_ultra
+          continue_on_error: true
+          data:
+            title: "{{ notification_title }}"
+            message: "{{ notification_message }}"
+            data:
+              group: "{{ notification_group }}"
+              tag: "{{ notification_id }}"
+      selector:
+        action: {}
+
+variables:
+  selected_gateway_id: !input gateway_id
+  selected_connectivity_entity: !input connectivity_entity
+  selected_outage_helper: !input outage_helper
+  include_recovery: !input send_recovery
+  keep_persistent: !input persistent_enabled
+  notification_id: "{{ 'satel_communication_' ~ selected_outage_helper | replace('.', '_') }}"
+  notification_group: "{{ 'satel_' ~ selected_outage_helper | replace('.', '_') }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input connectivity_entity
+  - trigger: time_pattern
+    seconds: "/15"
+
+conditions:
+  - condition: state
+    entity_id: !input ready_entity
+    state: "on"
+  - condition: template
+    value_template: "{{ state_attr(selected_connectivity_entity, 'gateway_id') == selected_gateway_id }}"
+
+actions:
+  # Także przy ręcznym uruchomieniu najpierw sprawdzamy gotowość bazy.
+  - condition: state
+    entity_id: !input ready_entity
+    state: "on"
+  - condition: template
+    value_template: "{{ state_attr(selected_connectivity_entity, 'gateway_id') == selected_gateway_id }}"
+  - choose:
+      - alias: Potwierdzony brak danych
+        conditions:
+          - condition: state
+            entity_id: !input connectivity_entity
+            state: "off"
+          - condition: state
+            entity_id: !input ready_entity
+            state: "on"
+            for:
+              seconds: 50
+          - condition: state
+            entity_id: !input outage_helper
+            state: "off"
+          - condition: template
+            value_template: >-
+              {% set sources = states.binary_sensor
+                | selectattr('attributes.satel_gateway', 'defined')
+                | selectattr('attributes.satel_gateway', 'eq', selected_gateway_id) | list %}
+              {{ sources | selectattr('state', 'in', ['on', 'off']) | list | count == 0 }}
+        sequence:
+          - variables:
+              notification_title: SATEL — brak danych
+              notification_message: >-
+                HA nie ma dostępnych stanów binarnych gatewaya {{ selected_gateway_id }}.
+                Upłynęła zwłoka nadzoru łączności lub okres rozruchu HA.
+                Sprawdź usługę gatewaya, połączenie ETHM i MQTT. Ostatnie alarmy
+                i awarie pozostają niepotwierdzone; brak danych nie oznacza ich ustąpienia.
+          - alias: Przerwa w powiadomieniach HA
+            enabled: !input persistent_enabled
+            action: persistent_notification.create
+            continue_on_error: true
+            data:
+              notification_id: "{{ notification_id }}"
+              title: "{{ notification_title }}"
+              message: "{{ notification_message }}"
+          - alias: Wybrane działania PUSH
+            enabled: !input mobile_enabled
+            continue_on_error: true
+            sequence: !input mobile_actions
+          - action: input_boolean.turn_on
+            target:
+              entity_id: !input outage_helper
+      - alias: Powrót aktualnych danych
+        conditions:
+          - condition: state
+            entity_id: !input connectivity_entity
+            state: "on"
+          - condition: state
+            entity_id: !input outage_helper
+            state: "on"
+          # Opóźnione on samego agregatu nie potwierdza powrotu.
+          - condition: template
+            value_template: >-
+              {% set sources = states.binary_sensor
+                | selectattr('attributes.satel_gateway', 'defined')
+                | selectattr('attributes.satel_gateway', 'eq', selected_gateway_id) | list %}
+              {{ sources | selectattr('state', 'in', ['on', 'off']) | list | count > 0 }}
+        sequence:
+          - variables:
+              notification_title: SATEL — dane znów docierają
+              notification_message: >-
+                HA ponownie otrzymuje stany binarne gatewaya {{ selected_gateway_id }}.
+                To potwierdza powrót danych, a nie brak alarmów lub kompletność
+                wszystkich odczytów.
+          - alias: Usuń własne stare ostrzeżenie, gdy nie ma go zastąpić wiadomość o powrocie
+            if:
+              - condition: template
+                value_template: "{{ not (include_recovery and keep_persistent) }}"
+            then:
+              - action: persistent_notification.dismiss
+                continue_on_error: true
+                data:
+                  notification_id: "{{ notification_id }}"
+          - alias: Opcjonalna wiadomość o powrocie
+            enabled: !input send_recovery
+            continue_on_error: true
+            sequence:
+              - alias: Powrót w powiadomieniach HA
+                enabled: !input persistent_enabled
+                action: persistent_notification.create
+                continue_on_error: true
+                data:
+                  notification_id: "{{ notification_id }}"
+                  title: "{{ notification_title }}"
+                  message: "{{ notification_message }}"
+              - alias: Wybrane działania PUSH
+                enabled: !input mobile_enabled
+                continue_on_error: true
+                sequence: !input mobile_actions
+          # Ta czynność celowo pozostaje poza opcjonalną sekwencją wiadomości.
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input outage_helper
+
+mode: single
+max_exceeded: silent

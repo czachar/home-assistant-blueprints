@@ -1,17 +1,18 @@
-# Wariant pełny bez blueprintów. Dla blueprintów użyj satel_notifications_base.yaml.
-# Instaluj tylko jeden wariant. Migracja: docs/satel-notifications/README_PL.md.
-# SATEL Gateway 0.11 — powiadomienia Home Assistant, package v1.0
-# Instalacja: /config/packages/satel_notifications.yaml, następnie kontrola
-# konfiguracji i pełny restart HA. Nie wklejaj do edytora dashboardu.
-# Odbiorca PUSH: notify.mobile_app_s24_ultra (istniejący odbiorca Serwerowni).
-# Gateway: integra_test. Zmieniając go, zamień wystąpienia tej wartości w szablonach.
+# SATEL Notifications Base v1.1 — baza dla dwóch blueprintów automatyzacji
+# Instalacja: /config/packages/satel_notifications.yaml (zastępuje pełny pakiet v1).
+# NIE ładuj jednocześnie starego pakietu i tego pliku: mają te same encje i ID.
+# Baza sama nie wysyła powiadomień. Zaimportuj i skonfiguruj oba blueprinty:
+# blueprints/automation/satel/satel_alarm_notifications.yaml
+# blueprints/automation/satel/satel_connectivity_notifications.yaml
+# Instrukcja: docs/satel-notifications/README_PL.md w repozytorium.
 #
-# Pamięć zawiera ostatnie POTWIERDZONE aktywne sygnały, również kiedy ich źródło
-# jest niedostępne. Jej stan nie jest bieżącym potwierdzeniem sprawności centrali.
-# Nie zmieniaj identyfikatorów pomocniczych encji tego pakietu w interfejsie HA.
-# Zwykłe naruszenia PIR/drzwi, blokady, pamięci i wyjścia nie wysyłają PUSH.
-# Aktualne naruszenia smoke/moisture oraz alarmy/sabotaże są zgłaszane także
-# w trybie serwisowym. Odtwarzanie trwałych atrybutów wymaga zachowania danych HA.
+# Gateway domyślny: integra_test. Dla innego gatewaya zmień wszystkie wystąpienia
+# integra_test w tej bazie i pole Gateway ID w blueprintcie łączności.
+# Ta baza obsługuje jeden gateway. Nie kopiuj jej pod inną nazwą dla drugiej centrali.
+# Nazwy i unique_id są zachowane, aby korzystać z dotychczasowej pamięci.
+# Nie zmieniaj ręcznie identyfikatorów tych pomocników ani wartości ready/latch.
+# Pamięć przechowuje ostatnie potwierdzone aktywne sygnały: brak danych nie kasuje alarmu.
+# Stan 'monitoring' oznacza gotowość pamięci, nie potwierdzenie sprawności centrali.
 
 input_boolean:
   satel_powiadomienia_gotowe:
@@ -63,6 +64,7 @@ template:
           {{ 'monitoring' if is_state('input_boolean.satel_powiadomienia_gotowe', 'on') else 'starting' }}
         attributes:
           schema: satel_notifications_v1
+          gateway_id: "{{ gateway_id }}"
           active: >-
             {% set saved = this.attributes.get('active', {}) if this is defined else {} %}
             {% set ns = namespace(active=saved if saved is mapping else {}) %}
@@ -159,6 +161,8 @@ template:
         default_entity_id: binary_sensor.satel_powiadomienia_lacznosc
         unique_id: satel_notifications_connectivity_v1
         device_class: connectivity
+        attributes:
+          gateway_id: integra_test
         # Zwłoka liczona od niedostępności encji w HA. Przy utracie pakietów
         # MQTT może najpierw upłynąć expire_after gatewaya (domyślnie 30 s).
         delay_off: "00:01:00"
@@ -190,165 +194,5 @@ automation:
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.satel_powiadomienia_gotowe
-    mode: single
-    max_exceeded: silent
-
-  - id: satel_notifications_changes_v1
-    alias: SATEL — alarmy, sabotaże i szczegółowe awarie
-    description: >-
-      Zgłasza różnice stabilnych identyfikatorów, także przy niezmienionej liczbie
-      awarii. Nie zgłasza ustąpienia na podstawie unavailable, usuniętej encji lub
-      częściowego odczytu. Nowy poprawny alarm działa niezależnie od innych źródeł.
-    triggers:
-      # Bez from/to: zmiana samych atrybutów też musi uruchomić automat.
-      - trigger: state
-        entity_id: sensor.satel_powiadomienia_pamiec
-    conditions:
-      - condition: state
-        entity_id: input_boolean.satel_powiadomienia_gotowe
-        state: "on"
-      - condition: template
-        value_template: >-
-          {{ trigger.from_state is not none and trigger.to_state is not none and
-             trigger.from_state.attributes.get('schema') == 'satel_notifications_v1' and
-             trigger.to_state.attributes.get('schema') == 'satel_notifications_v1' and
-             not trigger.to_state.attributes.get('restored', false) }}
-    actions:
-      - variables:
-          before: "{{ trigger.from_state.attributes.get('active', {}) }}"
-          after: "{{ trigger.to_state.attributes.get('active', {}) }}"
-      - variables:
-          added: "{{ after.keys() | reject('in', before.keys()) | list | sort }}"
-          cleared: "{{ before.keys() | reject('in', after.keys()) | list | sort }}"
-      - condition: template
-        value_template: "{{ added | count > 0 or cleared | count > 0 }}"
-      - variables:
-          notification_title: "{{ 'SATEL — aktywne zdarzenia' if added | count > 0 else 'SATEL — potwierdzone ustąpienie' }}"
-          notification_message: |-
-            {% if added | count > 0 %}
-            Aktywne:
-            {% for key in added[:12] %}
-            • {{ after[key].name }}
-            {% endfor %}
-            {% if added | count > 12 %}
-            … oraz {{ added | count - 12 }} kolejnych. Szczegóły w HA.
-            {% endif %}
-            {% endif %}
-            {% if cleared | count > 0 %}
-            Potwierdzono ustąpienie:
-            {% for key in cleared[:12] %}
-            • {{ before[key].name }}
-            {% endfor %}
-            {% if cleared | count > 12 %}
-            … oraz {{ cleared | count - 12 }} kolejnych.
-            {% endif %}
-            {% endif %}
-            Dotyczy wskazanych sygnałów; pozostałe mogą nadal zgłaszać problem lub być niedostępne.
-      - action: persistent_notification.create
-        data:
-          notification_id: satel_alarm_changes
-          title: "{{ notification_title }}"
-          message: "{{ notification_message }}"
-      - action: notify.mobile_app_s24_ultra
-        continue_on_error: true
-        data:
-          title: "{{ notification_title }}"
-          message: "{{ notification_message }}"
-          data:
-            group: satel
-            # Stały tag celowo pominięty: kolejne różne zdarzenia nie zastępują się.
-    mode: queued
-    max: 100
-    max_exceeded: warning
-
-  - id: satel_notifications_connectivity_v1
-    alias: SATEL — utrata i powrót danych
-    description: >-
-      Zgłasza brak wszystkich danych binarnych po 60 s i jeden powrót danych.
-      Działający kontener nie oznacza działającej komunikacji. Powrót danych
-      nie oznacza ustąpienia fizycznych alarmów ani kompletności wszystkich źródeł.
-    triggers:
-      - trigger: state
-        entity_id: binary_sensor.satel_powiadomienia_lacznosc
-      - trigger: time_pattern
-        seconds: "/15"
-    conditions:
-      - condition: state
-        entity_id: input_boolean.satel_powiadomienia_gotowe
-        state: "on"
-    actions:
-      - choose:
-          - conditions:
-              - condition: state
-                entity_id: binary_sensor.satel_powiadomienia_lacznosc
-                state: "off"
-              - condition: state
-                entity_id: input_boolean.satel_powiadomienia_awaria_lacznosci
-                state: "off"
-              - condition: template
-                value_template: >-
-                  {% set sources = states.binary_sensor
-                    | selectattr('attributes.satel_gateway', 'defined')
-                    | selectattr('attributes.satel_gateway', 'eq', 'integra_test') | list %}
-                  {{ sources | selectattr('state', 'in', ['on', 'off']) | list | count == 0 }}
-            sequence:
-              - action: persistent_notification.create
-                data:
-                  notification_id: satel_communication
-                  title: SATEL — brak danych
-                  message: >-
-                    Od co najmniej 60 s HA nie ma dostępnych stanów binarnych SATEL.
-                    Sprawdź gateway CT 106, połączenie ETHM i MQTT. Ostatnie alarmy
-                    i awarie pozostają niepotwierdzone; brak danych nie oznacza ich ustąpienia.
-              - action: notify.mobile_app_s24_ultra
-                continue_on_error: true
-                data:
-                  title: SATEL — brak danych
-                  message: >-
-                    Od co najmniej 60 s HA nie ma dostępnych stanów binarnych SATEL.
-                    Sprawdź gateway CT 106, połączenie ETHM i MQTT. Ostatnie alarmy
-                    i awarie pozostają niepotwierdzone; brak danych nie oznacza ich ustąpienia.
-                  data:
-                    group: satel
-                    tag: satel_communication
-              - action: input_boolean.turn_on
-                target:
-                  entity_id: input_boolean.satel_powiadomienia_awaria_lacznosci
-          - conditions:
-              - condition: state
-                entity_id: binary_sensor.satel_powiadomienia_lacznosc
-                state: "on"
-              - condition: state
-                entity_id: input_boolean.satel_powiadomienia_awaria_lacznosci
-                state: "on"
-              # delay_off może nadal pokazywać on po utracie danych. Powrót
-              # potwierdzamy także bezpośrednim sprawdzeniem bieżących źródeł.
-              - condition: template
-                value_template: >-
-                  {% set sources = states.binary_sensor
-                    | selectattr('attributes.satel_gateway', 'defined')
-                    | selectattr('attributes.satel_gateway', 'eq', 'integra_test') | list %}
-                  {{ sources | selectattr('state', 'in', ['on', 'off']) | list | count > 0 }}
-            sequence:
-              - action: persistent_notification.create
-                data:
-                  notification_id: satel_communication
-                  title: SATEL — dane znów docierają
-                  message: >-
-                    HA ponownie otrzymuje stany binarne SATEL. To potwierdza powrót
-                    danych, a nie brak alarmów lub kompletność wszystkich odczytów.
-              - action: notify.mobile_app_s24_ultra
-                continue_on_error: true
-                data:
-                  title: SATEL — dane znów docierają
-                  message: >-
-                    HA ponownie otrzymuje stany binarne SATEL. To potwierdza powrót
-                    danych, a nie brak alarmów lub kompletność wszystkich odczytów.
-                  data:
-                    group: satel
-                    tag: satel_communication
-              - action: input_boolean.turn_off
-                target:
-                  entity_id: input_boolean.satel_powiadomienia_awaria_lacznosci
     mode: single
     max_exceeded: silent
