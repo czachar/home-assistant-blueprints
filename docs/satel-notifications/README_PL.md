@@ -10,9 +10,13 @@ Wspólna baza pamięci jest instalowana raz. Wymagany Home Assistant 2025.10.0 l
 | Utrata i powrót danych | Brak stanów SATEL, jeden komunikat po powrocie danych | [Importuj do HA](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fczachar%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fsatel%2Fsatel_connectivity_notifications.yaml) |
 | Serwerownia Monitor 1.3.7 | Istniejący monitoring serwerów, UPS i zasobów; tutaj dodajesz CT 106 | [Importuj do HA](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fczachar%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fserwerownia%2Fserwerownia_monitor_v1.yaml) |
 
-Link importu otwiera Twoją instancję HA przez My Home Assistant. Jeśli nie działa,
-wejdź do **Ustawienia → Automatyzacje i sceny → Blueprinty → Importuj blueprint**
-i wklej adres odpowiedniego pliku:
+Przycisk **Importuj do HA** otwiera Twoją instancję przez My Home Assistant.
+W samym formularzu importu potrzebny jest bezpośredni adres pliku z GitHuba;
+wklejenie tam adresu `my.home-assistant.io` powoduje próbę odczytu strony jako YAML.
+
+Przy ręcznym imporcie wejdź do **Ustawienia → Automatyzacje i sceny → Blueprinty →
+Importuj blueprint** i wklej adres odpowiedniego pliku (prawy przycisk myszy →
+**Kopiuj adres linku**):
 
 - [Alarmy i awarie — GitHub](https://github.com/czachar/home-assistant-blueprints/blob/main/blueprints/automation/satel/satel_alarm_notifications.yaml)
 - [Utrata i powrót danych — GitHub](https://github.com/czachar/home-assistant-blueprints/blob/main/blueprints/automation/satel/satel_connectivity_notifications.yaml)
@@ -34,7 +38,6 @@ Pobierz [satel_notifications_base.yaml](https://raw.githubusercontent.com/czacha
 zawartość bazą. Nie instaluj obu plików równocześnie.** Zachowano identyfikatory
 encji, unique_id i strukturę pamięci, aby wykorzystać zapisane wcześniej stany.
 Kopię poprzedniego pliku przechowuj poza katalogiem `packages`, żeby HA jej nie ładował.
-Nie kopiuj całego katalogu `packages` z repozytorium — zawiera oba warianty.
 
 Jeżeli pakiety nie są jeszcze włączone, w `configuration.yaml` dodaj:
 
@@ -104,10 +107,6 @@ istniejącą automatyzację i w **VM / LXC / Urządzenia → Monitorowane encje*
 `binary_sensor.lxc_satel_gateway_106_status`, zachowując pozostałe pozycje.
 Nie twórz drugiej automatyzacji dla całej serwerowni.
 
-[Gotowa konfiguracja istniejącej automatyzacji z CT 106](https://github.com/czachar/home-assistant-blueprints/blob/main/examples/serwerownia_monitor_ct106.yaml)
-pozostaje dostępna jako przykład. To konfiguracja jednej automatyzacji korzystającej
-z blueprintu, a nie osobny blueprint ani cały plik `automations.yaml`.
-
 ## Zachowanie i zakres
 
 - Nowo wykryte wejścia są uwzględniane automatycznie dzięki oznaczeniom
@@ -162,8 +161,10 @@ Zachowuj istniejące automatyzacje i ich ustawienia. Jeśli zmienia się baza pa
 instrukcja wydania wskaże konieczność podmiany pliku i restartu HA. Zwykła zmiana
 odbiorcy albo opcji powiadomień odbywa się w formularzu automatyzacji.
 
-Pełny stary pakiet `packages/satel_notifications.yaml` pozostaje w repozytorium
-jako wariant bez blueprintów. Wybierz jeden wariant instalacji; nie łącz obu.
+Repozytorium udostępnia wariant z blueprintami i bazą pamięci. Stary pełny pakiet
+oraz przykład konfiguracji automatyzacji CT 106 usunięto z bieżącej wersji;
+pozostają w historii Git. Lokalny plik `/config/packages/satel_notifications.yaml`
+w HA zachowaj — według tej instrukcji zawiera on aktualną bazę pamięci.
 
 ## Lokalne testy plików
 

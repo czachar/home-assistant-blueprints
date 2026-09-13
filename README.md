@@ -11,4 +11,11 @@ pakietu zastąp go bazą, aby uniknąć podwójnych powiadomień.
 
 [Instrukcja instalacji i migracji SATEL](docs/satel-notifications/README_PL.md)
 
-[Przykład konfiguracji Serwerowni z CT 106](examples/serwerownia_monitor_ct106.yaml)
+CT 106 dodaj w formularzu istniejącej automatyzacji Serwerowni: **VM / LXC /
+Urządzenia → Monitorowane encje → Status urządzenia LXC satel-gateway (106)**.
+
+Przyciski **Importuj do HA** otwieraj w przeglądarce. Do pola adresu w formularzu
+importu wklej bezpośredni adres pliku z GitHuba podany w instrukcji.
+
+Repozytorium zawiera trzy blueprinty, bazę pamięci SATEL, instrukcję i testy.
+Starsze warianty pozostają dostępne w historii Git.
