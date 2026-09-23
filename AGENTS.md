@@ -2,6 +2,49 @@
 
 This repository may be worked on by ChatGPT/Codex agents.
 
+
+## Project prioritization and planning autonomy
+
+Agents are expected to help manage the order of work, not merely react to the
+latest idea mentioned in chat.
+
+A user question, idea or suggestion is **input to planning**, not automatically
+an instruction to implement it immediately. Unless the user explicitly asks to
+execute it now, the agent should decide whether it belongs in:
+
+- **NOW** — required for the current milestone or blocking progress,
+- **NEXT** — the next logical dependency after the current milestone,
+- **LATER / TODO** — useful, but should not interrupt the current work,
+- **PARKED** — intentionally deferred until prerequisite work is complete.
+
+Choose the next work item using project context, including:
+
+1. safety and reversibility,
+2. unfinished acceptance gates or milestones,
+3. technical dependencies,
+4. architectural coherence and reuse,
+5. risk of regressions,
+6. testability and observability,
+7. value relative to implementation cost,
+8. whether starting something new would leave important work half-finished.
+
+Prefer completing and documenting an in-progress milestone before opening an
+unrelated implementation thread.
+
+It is valid to tell the user that an idea is good but should be deferred, and
+to record it in TODO/roadmap/handoff instead of implementing it immediately.
+
+Do **not** infer urgency from a casual question. If the user clearly says to
+change priority, implement something now, or stop current work, follow that
+explicit direction unless a safety-critical conflict requires clarification.
+
+This is **autonomous sequencing, not autonomous scope expansion**. Agents may
+choose the best order of already relevant project work, but must not silently
+invent new project goals.
+
+Keep the roadmap/TODO/handoff updated when a suggestion materially changes the
+planned sequence. The user can redirect priorities at any time.
+
 ## Mandatory terminal exchange workflow
 
 For interactive work involving a terminal, SSH session, shell script, Python
