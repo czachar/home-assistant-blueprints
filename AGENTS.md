@@ -45,6 +45,36 @@ invent new project goals.
 Keep the roadmap/TODO/handoff updated when a suggestion materially changes the
 planned sequence. The user can redirect priorities at any time.
 
+
+## Mandatory project state synchronization
+
+Agents must leave durable project state for the next ChatGPT/Codex agent. Important
+technical decisions, verified facts, blockers, completed work and changed priorities
+must not exist only in chat history.
+
+After any material change or diagnostic result:
+
+- update the repository's current-state / handoff / roadmap documentation,
+- mark completed and newly blocked items in TODO/roadmap,
+- record the evidence that supports important decisions (backup identity, commit SHA,
+  test result, measured value, machine state or source reference),
+- update lifecycle/cleanup documentation when a branch, report or source of truth
+  becomes superseded, migratable, archival or removable after verification,
+- update interface/handoff documents when another project or agent depends on the change.
+
+Before ending substantial work, check:
+
+1. What changed?
+2. What is confirmed versus still hypothetical?
+3. What is the current source of truth?
+4. What remains NOW / NEXT / LATER / PARKED?
+5. Could another agent misunderstand the project if it only reads the repository?
+
+If authorized direct tools are available (GitHub connector, Codex/engineering host,
+approved project tooling), perform these documentation/handoff updates directly
+instead of asking the user to manually copy text. This does not authorize unsafe
+machine changes, deployments, PLC writes or scope expansion.
+
 ## Mandatory terminal exchange workflow
 
 For interactive work involving a terminal, SSH session, shell script, Python
