@@ -5,13 +5,15 @@
 #   ha_config_sync.sh            — pobranie, skan, commit + push (jeśli są zmiany)
 #   ha_config_sync.sh --dry-run  — pobranie i skan, bez commitu
 set -euo pipefail
+# NIE uruchamiać z `bash -x` — śledzenie wypisuje surowe trafienia skanera (sekrety) przed maskowaniem (2026-10-19).
+# esphome/ pominięte: jawne hasła/klucze w plikach urządzeń — najpierw przenieść do esphome/secrets.yaml.
 
 HA_HOST="${HA_HOST:-root@192.168.30.20}"
 REPO="${HA_CONFIG_REPO:-$HOME/ha-config}"
 DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
 
 INCLUDE=(configuration.yaml automations.yaml scenes.yaml scripts.yaml monitoring_reguly.yaml
-         custom_templates packages blueprints themes esphome
+         custom_templates packages blueprints themes
          .storage/lovelace.lovelace .storage/lovelace.map .storage/lovelace_dashboards .storage/lovelace_resources)
 EXCLUDE=(--exclude=secrets.yaml --exclude=esphome/secrets.yaml --exclude=esphome/.esphome --exclude=esphome/archive
          --exclude='*.db' --exclude='*.log' --exclude='__pycache__')
@@ -31,7 +33,8 @@ hits=$(grep -rnI -E \
   --exclude-dir=.git . | grep -v -E ':[[:space:]]*(true|false|null|\[\]|"")[[:space:]]*$' || true)
 if [ -n "$hits" ]; then
   echo "SKAN: możliwe sekrety — commit wstrzymany:"
-  echo "$hits" | sed -E 's/(:[[:space:]]*).{4,}$/\1<ukryte>/' | cut -c1-160
+  { set +x; } 2>/dev/null
+  echo "$hits" | cut -d: -f1,2 | sed 's/$/: <ukryte>/'
   git checkout -q -- . 2>/dev/null || true
   exit 2
 fi
