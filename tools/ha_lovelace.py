@@ -8,6 +8,7 @@ co robi edytor surowej konfiguracji. Bez restartu HA i bez podmiany plików w /c
   ha_lovelace.py views <url_path>                   — lista widoków (indeks, path, tytuł, typ)
   ha_lovelace.py save-view <url_path> <path> <plik> — podmiana jednego widoku (kopia całości przed zapisem)
   ha_lovelace.py entities [wzorzec regex]           — encje (entity_id, stan) pasujące do wzorca
+  ha_lovelace.py ws <typ> [json]                    — dowolne wywołanie WebSocket (diagnostyka)
 
 Token długoterminowy HA czytany z pliku (domyślnie ~/.config/ha/token, prawa 0600) — nigdy z argumentów.
 Adres: zmienna HA_URL (domyślnie http://192.168.30.20:8123).
@@ -122,6 +123,10 @@ async def main(argv):
             new["views"][idx[0]] = view
             await ha.call(type="lovelace/config/save", url_path=url_arg(argv[1]), config=new)
             print(f"zapisano widok '{argv[2]}' w '{argv[1]}' (kopia całości: {bak})")
+        elif cmd == "ws":
+            # ws <typ> [json z parametrami] — dowolne wywołanie WebSocket (diagnostyka, tylko świadomie)
+            params = json.loads(argv[2]) if len(argv) > 2 else {}
+            print(json.dumps(await ha.call(type=argv[1], **params), ensure_ascii=False, indent=1))
         elif cmd == "entities":
             pat = re.compile(argv[1] if len(argv) > 1 else ".")
             for s in await ha.call(type="get_states"):
