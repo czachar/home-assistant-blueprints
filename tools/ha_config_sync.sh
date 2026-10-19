@@ -22,6 +22,7 @@ EXCLUDE=(--exclude=secrets.yaml --exclude=esphome/secrets.yaml --exclude=esphome
 cd "$REPO"
 # czyste drzewo robocze = dokładny obraz wybranych plików (usunięcia w HA też trafiają do Gita)
 { git ls-files -z | grep -zv -E '^(README\.md|\.gitignore)$' || true; } | xargs -0 -r rm -f
+git clean -fdxq   # pozostałości poprzednich pobrań (nieśledzone), np. katalogi usunięte z INCLUDE
 find . -mindepth 1 -type d -not -path './.git*' -empty -delete 2>/dev/null || true
 ssh -o BatchMode=yes "$HA_HOST" "cd /config && tar -czf - ${EXCLUDE[*]} ${INCLUDE[*]} 2>/dev/null" | tar -xzf -
 
@@ -36,6 +37,7 @@ if [ -n "$hits" ]; then
   { set +x; } 2>/dev/null
   echo "$hits" | cut -d: -f1,2 | sed 's/$/: <ukryte>/'
   git checkout -q -- . 2>/dev/null || true
+  git clean -fdxq
   exit 2
 fi
 
