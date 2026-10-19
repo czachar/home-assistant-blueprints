@@ -19,7 +19,7 @@ EXCLUDE=(--exclude=secrets.yaml --exclude=esphome/secrets.yaml --exclude=esphome
 [ -d "$REPO/.git" ] || { echo "brak repozytorium $REPO (git clone z Forgejo)"; exit 1; }
 cd "$REPO"
 # czyste drzewo robocze = dokładny obraz wybranych plików (usunięcia w HA też trafiają do Gita)
-git ls-files -z | grep -zv -E '^(README\.md|\.gitignore)$' | xargs -0 -r rm -f
+{ git ls-files -z | grep -zv -E '^(README\.md|\.gitignore)$' || true; } | xargs -0 -r rm -f
 find . -mindepth 1 -type d -not -path './.git*' -empty -delete 2>/dev/null || true
 ssh -o BatchMode=yes "$HA_HOST" "cd /config && tar -czf - ${EXCLUDE[*]} ${INCLUDE[*]} 2>/dev/null" | tar -xzf -
 
